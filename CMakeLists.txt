@@ -13,3 +13,6 @@ add_executable(gb_ostrich
 target_include_directories(gb_ostrich PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
+
+add_subdirectory(external/spdlog)
+target_link_libraries(gb_ostrich PRIVATE spdlog::spdlog_header_only)
