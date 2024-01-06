@@ -8,6 +8,7 @@ add_executable(gb_ostrich
     main.cpp
     src/address_bus.cpp
     src/cart.cpp
+    src/cpu.cpp
     )
 
 target_include_directories(gb_ostrich PUBLIC
