@@ -6,6 +6,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 add_executable(gb_ostrich
     main.cpp
+    src/address_bus.cpp
     src/cart.cpp
     )
 

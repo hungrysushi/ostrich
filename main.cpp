@@ -2,9 +2,11 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "address_bus.h"
 #include "cart.h"
 
 
@@ -40,8 +42,12 @@ int main(int argc, char** argv)
     }
     std::string filename(argv[1]);
     std::vector<uint8_t> buffer = loadRom(filename);
-    Cart cart(buffer);
-    std::cout << cart.Describe() << "\n";
+    std::shared_ptr<Cart> cart = std::make_shared<Cart>(buffer);
+    std::cout << cart->Describe() << "\n";
+
+    std::shared_ptr<AddressBus> addressBus = std::make_shared<AddressBus>();
+
+    addressBus->cart_ = cart;
 
     return 0;
 }

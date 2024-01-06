@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "interface/addressable.h"
+
 
 const uint16_t kEntryStart = 0x100;
 const uint16_t kEntrySize = 0x04;
@@ -23,7 +25,7 @@ const uint16_t kHeaderChecksum = 0x14D;
 const uint16_t kGlobalChecksum = 0x14E;
 
 
-class Cart {
+class Cart : public Addressable {
     public:
         Cart(std::vector<uint8_t>& buffer);
         virtual ~Cart();
