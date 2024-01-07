@@ -40,6 +40,7 @@ std::vector<uint8_t> loadRom(const std::string& filename)
 int main(int argc, char** argv)
 {
     spdlog::set_level(spdlog::level::trace);
+    spdlog::set_pattern("%v");
 
     if (argc < 2) {
         std::cout << "Enter a filename\n";
