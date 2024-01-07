@@ -84,13 +84,13 @@ void CPU::Fetch(InstructionContext& context) {
             registers_.GetSubFlag() ? "N" : "-",
             registers_.GetHalfCarryFlag() ? "H" : "-",
             registers_.GetCarryFlag() ? "C" : "-",
-            registers_.A(),
-            registers_.B(),
-            registers_.C(),
-            registers_.D(),
-            registers_.E(),
-            registers_.H(),
-            registers_.L());
+            registers_.af_[1],
+            registers_.bc_[1],
+            registers_.bc_[0],
+            registers_.de_[1],
+            registers_.de_[0],
+            registers_.hl_[1],
+            registers_.hl_[0]);
 
     registers_.ProgramCounter()++;
     cycles_++;
@@ -130,6 +130,31 @@ void CPU::Execute(InstructionContext& context) {
             spdlog::critical("Opcode execute handler not found: {:02x} {}", context.instruction.opcode, context.instruction.mnemonic);
             exit(-1);
 
+    }
+}
+
+
+const uint8_t CPU::Read(const uint16_t addr) {
+    switch(addr) {
+        case 0xFF0F:
+            return if_;
+        case 0xFFFF:
+            return ie_;
+        default:
+            spdlog::warn("Unimplemented CPU register read: {:4X}", addr);
+    }
+
+    return 0;
+}
+
+void CPU::Write(const uint16_t addr, const uint8_t value) {
+    switch(addr) {
+        case 0xFF0F:
+            if_ = value;
+        case 0xFFFF:
+            ie_ = value;
+        default:
+            spdlog::warn("Unimplemented CPU register write: {:4X}", addr);
     }
 }
 

@@ -7,7 +7,7 @@
 #include "instructions.h"
 
 
-class CPU {
+class CPU : public Addressable {
     public:
         CPU();
         virtual ~CPU();
@@ -17,6 +17,9 @@ class CPU {
         void Fetch(InstructionContext& context);
         void Decode(InstructionContext& context);
         void Execute(InstructionContext& context);
+
+        const uint8_t Read(const uint16_t addr);
+        void Write(const uint16_t addr, const uint8_t value);
 
         // handlers
         void _nop(InstructionContext& context);

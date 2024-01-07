@@ -31,8 +31,8 @@ class Cart : public Addressable {
         virtual ~Cart();
 
         const std::string Describe();
-        const uint8_t Read(uint16_t i);
-        void Write(uint16_t i, uint8_t byte);
+        const uint8_t Read(uint16_t addr);
+        void Write(uint16_t addr, uint8_t value);
 
         const std::vector<uint8_t> buffer_;
         const uint32_t size_;

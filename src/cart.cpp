@@ -47,13 +47,13 @@ const std::string Cart::Describe() {
     return ss.str();
 }
 
-const uint8_t Cart::Read(uint16_t i) {
-    return buffer_[i];
+const uint8_t Cart::Read(uint16_t addr) {
+    return buffer_[addr];
 
     // TODO banks/switching
 }
 
-void Cart::Write(uint16_t i, uint8_t byte) {
+void Cart::Write(uint16_t addr, uint8_t value) {
     // invalid write to ROM
     /* buffer_[i] = byte; */
 }
