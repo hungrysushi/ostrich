@@ -55,6 +55,15 @@ class CPU : public Addressable {
         void _cpl(InstructionContext& context);
         void _scf(InstructionContext& context);
         void _ccf(InstructionContext& context);
+        void _stop(InstructionContext& context);
+        void _ret(InstructionContext& context);
+        void _reti(InstructionContext& context);
+        void _call(InstructionContext& context);
+        void _addSpR8(InstructionContext& context);
+        void _ldHlSpR8(InstructionContext& context);
+        void _ldSpHl(InstructionContext& context);
+        void _ldA16Sp(InstructionContext& context);
+        void _prefixCb(InstructionContext& context);
 
         // helpers
         uint16_t _readData(ArgumentType argumentType);

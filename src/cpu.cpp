@@ -137,11 +137,18 @@ void CPU::Execute(InstructionContext& context) {
         case InstructionType::CPL: _cpl(context); break;
         case InstructionType::SCF: _scf(context); break;
         case InstructionType::CCF: _ccf(context); break;
+        case InstructionType::STOP: _stop(context); break;
+        case InstructionType::RET: _ret(context); break;
+        case InstructionType::RETI: _reti(context); break;
+        case InstructionType::CALL: _call(context); break;
+        case InstructionType::ADD_SP_R8: _addSpR8(context); break;
+        case InstructionType::LD_HL_SP_R8: _ldHlSpR8(context); break;
+        case InstructionType::LD_SP_HL: _ldSpHl(context); break;
+        case InstructionType::LD_A16_SP: _ldA16Sp(context); break;
         case InstructionType::NONE:
         default:
             spdlog::critical("Opcode execute handler not found: {:02x} {}", context.instruction.opcode, context.instruction.mnemonic);
             exit(-1);
-
     }
 }
 
@@ -444,6 +451,77 @@ void CPU::_ccf(InstructionContext& context) {
     registers_.SetSubFlag(false);
     registers_.SetHalfCarryFlag(false);
     registers_.SetCarryFlag(registers_.GetCarryFlag() ^ 0x1);
+}
+
+void CPU::_stop(InstructionContext& context) {
+    spdlog::info("Received STOP");
+    exit(0); // TODO exit more gracefully
+}
+
+void CPU::_ret(InstructionContext& context) {
+    // branching adds an extra cycle
+    if (context.instruction.condition != ConditionType::NONE) {
+        cycles_++;
+    }
+
+    if (_checkCondition(context.instruction.condition)) {
+        uint16_t returnAddr = _stackPopWord();
+
+        registers_.ProgramCounter() = returnAddr;
+        cycles_++;
+    }
+}
+
+void CPU::_reti(InstructionContext& context) {
+    // returning from interrupt, so re-enable ime
+    ime_ = true;
+    _ret(context);
+}
+
+void CPU::_call(InstructionContext& context) {
+    if (_checkCondition(context.instruction.condition)) {
+        _savePCToStack();
+
+        registers_.ProgramCounter() = context.source;
+        cycles_++;
+    }
+}
+
+void CPU::_addSpR8(InstructionContext& context) {
+    uint16_t value = registers_.StackPointer() + (int) context.source;
+
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag((registers_.StackPointer() & 0xF) + (context.source & 0xF) >= 0x10);
+    registers_.SetCarryFlag(((int32_t) registers_.StackPointer() & 0xFF) + ((int32_t) context.source & 0xFF) >= 0x100);
+}
+
+void CPU::_ldHlSpR8(InstructionContext& context) {
+    uint16_t value = registers_.StackPointer() + (int8_t) context.source;
+
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag((registers_.StackPointer() & 0xF) + (context.source & 0xF) >= 0x10);
+    registers_.SetCarryFlag((registers_.StackPointer() & 0xFF) + (context.source & 0xFF) >= 0x100);
+
+    registers_.StackPointer() = value;
+    cycles_++;
+}
+
+void CPU::_ldSpHl(InstructionContext& context) {
+    registers_.StackPointer() = context.source;
+    cycles_++;
+}
+
+void CPU::_ldA16Sp(InstructionContext& context) {
+    uint16_t address = _readImm16();
+
+    _writeMem(address, context.source & 0x00FF); // lower byte
+    _writeMem(address + 1, (context.source >> 8) & 0x00FF); // upper byte
+}
+
+void CPU::_prefixCb(InstructionContext& context) {
+
 }
 
 //--------
