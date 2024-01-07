@@ -125,6 +125,18 @@ void CPU::Execute(InstructionContext& context) {
         case InstructionType::SBC: _sbc(context); break;
         case InstructionType::AND: _and(context); break;
         case InstructionType::OR: _or(context); break;
+        case InstructionType::INC16: _inc16(context); break;
+        case InstructionType::DEC16: _dec16(context); break;
+        case InstructionType::ADD16: _add16(context); break;
+        case InstructionType::PUSH: _push(context); break;
+        case InstructionType::RLCA: _rlca(context); break;
+        case InstructionType::RRCA: _rrca(context); break;
+        case InstructionType::RLA: _rla(context); break;
+        case InstructionType::RRA: _rra(context); break;
+        case InstructionType::DAA: _daa(context); break;
+        case InstructionType::CPL: _cpl(context); break;
+        case InstructionType::SCF: _scf(context); break;
+        case InstructionType::CCF: _ccf(context); break;
         case InstructionType::NONE:
         default:
             spdlog::critical("Opcode execute handler not found: {:02x} {}", context.instruction.opcode, context.instruction.mnemonic);
@@ -132,7 +144,6 @@ void CPU::Execute(InstructionContext& context) {
 
     }
 }
-
 
 const uint8_t CPU::Read(const uint16_t addr) {
     switch(addr) {
@@ -325,6 +336,114 @@ void CPU::_or(InstructionContext& context) {
     registers_.SetSubFlag(false);
     registers_.SetHalfCarryFlag(false);
     registers_.SetCarryFlag(false);
+}
+
+void CPU::_inc16(InstructionContext& context) {
+    uint16_t value = context.source + 1;
+
+    cycles_++;
+    _writeData(context.instruction.source, value);
+}
+
+void CPU::_dec16(InstructionContext& context) {
+    uint16_t value = context.source - 1;
+
+    cycles_++;
+    _writeData(context.instruction.source, value);
+}
+
+void CPU::_add16(InstructionContext& context) {
+    uint16_t value = registers_.HL() + context.source;
+
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag((registers_.HL() & 0xFFF) + (context.source & 0xFFF) >= 0x1000);
+    registers_.SetCarryFlag(((uint32_t) registers_.HL()) + ((uint32_t) context.source) >= 0x10000);
+
+    cycles_++;
+    registers_.HL() = value;
+}
+
+void CPU::_push(InstructionContext& context) {
+    _stackPushWord(context.source);
+    cycles_++;
+}
+
+void CPU::_rlca(InstructionContext& context) {
+    bool carry = (registers_.A() >> 7) & 0x01; // check if leftmost bit is set
+
+    registers_.A() = (registers_.A() << 1) | ((uint8_t) carry);
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_rrca(InstructionContext& context) {
+    bool carry = registers_.A() & 0x01; // check if rightmost bit is set
+
+    registers_.A() = (registers_.A() >> 1) | ((uint8_t) carry << 7);
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_rla(InstructionContext& context) {
+    bool carry = (registers_.A() >> 7) & 0x01; // check if leftmost bit is set
+
+    registers_.A() = (registers_.A() << 1) | ((uint8_t) registers_.GetCarryFlag());
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_rra(InstructionContext& context) {
+    bool carry = registers_.A() & 0x01;
+
+    registers_.A() = (registers_.A() >> 1) | ((uint8_t) registers_.GetCarryFlag() << 7);
+    registers_.SetZeroFlag(false);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_daa(InstructionContext& context) {
+    bool carryFlag = false;
+    uint8_t value = 0;
+
+    if (registers_.GetHalfCarryFlag() || (!registers_.GetSubFlag() && ((registers_.A() & 0x0F) > 9))) {
+        value = 6;
+    }
+
+    if (registers_.GetCarryFlag() || (!registers_.GetSubFlag() && (registers_.A() > 0x99))) {
+        value |= 0x60;  // ??
+        carryFlag = true;
+    }
+
+    registers_.A() += registers_.GetSubFlag() ? -value : value;
+
+    registers_.SetZeroFlag(registers_.A() == 0);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carryFlag);
+}
+
+void CPU::_cpl(InstructionContext& context) {
+    registers_.A() = ~registers_.A();
+    registers_.SetSubFlag(true);
+    registers_.SetHalfCarryFlag(true);
+}
+
+void CPU::_scf(InstructionContext& context) {
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(true);
+}
+
+void CPU::_ccf(InstructionContext& context) {
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(registers_.GetCarryFlag() ^ 0x1);
 }
 
 //--------

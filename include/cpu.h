@@ -43,6 +43,18 @@ class CPU : public Addressable {
         void _sbc(InstructionContext& context);
         void _and(InstructionContext& context);
         void _or(InstructionContext& context);
+        void _inc16(InstructionContext& context);
+        void _dec16(InstructionContext& context);
+        void _add16(InstructionContext& context);
+        void _push(InstructionContext& context);
+        void _rlca(InstructionContext& context);
+        void _rrca(InstructionContext& context);
+        void _rla(InstructionContext& context);
+        void _rra(InstructionContext& context);
+        void _daa(InstructionContext& context);
+        void _cpl(InstructionContext& context);
+        void _scf(InstructionContext& context);
+        void _ccf(InstructionContext& context);
 
         // helpers
         uint16_t _readData(ArgumentType argumentType);
