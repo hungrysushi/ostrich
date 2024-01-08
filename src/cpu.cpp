@@ -29,6 +29,7 @@ void CPU::Boot() {
     if_ = 0;
     ime_ = false;
     setImeNextCycle_ = false;
+    halted_ = false;
 }
 
 int CPU::Step() {
@@ -145,6 +146,7 @@ void CPU::Execute(InstructionContext& context) {
         case InstructionType::LD_HL_SP_R8: _ldHlSpR8(context); break;
         case InstructionType::LD_SP_HL: _ldSpHl(context); break;
         case InstructionType::LD_A16_SP: _ldA16Sp(context); break;
+        case InstructionType::PREFIX_CB: _prefixCb(context); break;
         case InstructionType::NONE:
         default:
             spdlog::critical("Opcode execute handler not found: {:02x} {}", context.instruction.opcode, context.instruction.mnemonic);
@@ -169,8 +171,10 @@ void CPU::Write(const uint16_t addr, const uint8_t value) {
     switch(addr) {
         case 0xFF0F:
             if_ = value;
+            break;
         case 0xFFFF:
             ie_ = value;
+            break;
         default:
             spdlog::warn("Unimplemented CPU register write: {:4X}", addr);
     }
@@ -488,12 +492,14 @@ void CPU::_call(InstructionContext& context) {
 }
 
 void CPU::_addSpR8(InstructionContext& context) {
-    uint16_t value = registers_.StackPointer() + (int) context.source;
+    uint16_t value = registers_.StackPointer() + (int8_t) context.source;
 
     registers_.SetZeroFlag(false);
     registers_.SetSubFlag(false);
     registers_.SetHalfCarryFlag((registers_.StackPointer() & 0xF) + (context.source & 0xF) >= 0x10);
     registers_.SetCarryFlag(((int32_t) registers_.StackPointer() & 0xFF) + ((int32_t) context.source & 0xFF) >= 0x100);
+
+    registers_.StackPointer() = value;
 }
 
 void CPU::_ldHlSpR8(InstructionContext& context) {
@@ -504,7 +510,7 @@ void CPU::_ldHlSpR8(InstructionContext& context) {
     registers_.SetHalfCarryFlag((registers_.StackPointer() & 0xF) + (context.source & 0xF) >= 0x10);
     registers_.SetCarryFlag((registers_.StackPointer() & 0xFF) + (context.source & 0xFF) >= 0x100);
 
-    registers_.StackPointer() = value;
+    registers_.HL() = value;
     cycles_++;
 }
 
@@ -521,7 +527,39 @@ void CPU::_ldA16Sp(InstructionContext& context) {
 }
 
 void CPU::_prefixCb(InstructionContext& context) {
+    // these instructions can be decoded as follows:
+    // 0bxxyyyzzz
+    // xx - operation bucket, where
+    //      00 - RLC, RRC, etc
+    //      01 - BIT
+    //      10 - RES
+    //      11 - SET
+    // yyy - select op type if xx=00 or select bit operand
+    // zzz - data source from B, C, D, E, H, L, (HL), A
+    uint8_t cbOpcode = _readImm8();
 
+    uint8_t opBucket = (cbOpcode >> 6) & 0x03; // top two bits
+    uint8_t opType = (cbOpcode >> 3) & 0x07; // bits 3-5
+    uint8_t opSource = cbOpcode & 0x07; // bits 0-2
+    ArgumentType dataSource = kArgumentTypeFromCBSource[opSource];
+
+    switch(opBucket) {
+        case 0b00:
+            switch(opType) {
+                case 0b000: _cbRlc(dataSource); break;
+                case 0b001: _cbRrc(dataSource); break;
+                case 0b010: _cbRl(dataSource); break;
+                case 0b011: _cbRr(dataSource); break;
+                case 0b100: _cbSla(dataSource); break;
+                case 0b101: _cbSra(dataSource); break;
+                case 0b110: _cbSwap(dataSource); break;
+                case 0b111: _cbSrl(dataSource); break;
+            }
+            break;
+        case 0b01: _cbBit(opType, dataSource); break;
+        case 0b10: _cbRes(opType, dataSource); break;
+        case 0b11: _cbSet(opType, dataSource); break;
+    }
 }
 
 //--------
@@ -737,4 +775,121 @@ uint16_t CPU::_stackPopWord() {
 
 void CPU::_savePCToStack() {
     _stackPushWord(registers_.ProgramCounter());
+}
+
+void CPU::_cbRlc(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & (0x01 << 7);
+    uint8_t rotated = (value << 1) | ((uint8_t) carry);
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbRrc(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & 0x01;
+    uint8_t rotated = (value >> 1) | (((uint8_t) carry) << 7);
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbRl(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & (0x01 << 7);
+    uint8_t rotated = (value << 1) | ((uint8_t) registers_.GetCarryFlag());
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbRr(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & 0x01;
+    uint8_t rotated = ((uint8_t) registers_.GetCarryFlag() << 7) | (value >> 1);
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbSla(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & (0x01 << 7);
+    uint8_t rotated = value << 1;
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbSra(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & 0x01;
+    uint8_t rotated = (int8_t) value >> 1;
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbSwap(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    uint8_t swapped = ((value & 0x0F) << 4) | ((value & 0xF0) >> 4);
+
+    _writeData(dataSource, swapped);
+    registers_.SetZeroFlag(swapped == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(false);
+}
+
+void CPU::_cbSrl(ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    bool carry = value & 0x01;
+    uint8_t rotated = value >> 1;
+
+    _writeData(dataSource, rotated);
+    registers_.SetZeroFlag(rotated == 0);
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(false);
+    registers_.SetCarryFlag(carry);
+}
+
+void CPU::_cbBit(uint8_t bit, ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+
+    registers_.SetZeroFlag(!(value & (0x01 << bit)));
+    registers_.SetSubFlag(false);
+    registers_.SetHalfCarryFlag(true);
+}
+
+void CPU::_cbRes(uint8_t bit, ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    value &= ~(0x01 << bit);
+
+    _writeData(dataSource, value);
+}
+
+void CPU::_cbSet(uint8_t bit, ArgumentType dataSource) {
+    uint8_t value = _readData(dataSource);
+    value |= 0x01 << bit;
+
+    _writeData(dataSource, value);
 }

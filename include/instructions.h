@@ -146,7 +146,7 @@ static Instruction kInstructions[] = {
     {    0x20,    "JR NZ,r8",        InstructionType::JR,             ArgumentType::NONE,             ArgumentType::IMM_8,            ConditionType::NZ   },
     {    0x21,    "LD HL,d16",       InstructionType::LD_16,          ArgumentType::HL,               ArgumentType::IMM_16,           ConditionType::NONE },
     {    0x22,    "LD (HL+),A",      InstructionType::LD,             ArgumentType::MEM_AT_HLI,       ArgumentType::A,                ConditionType::NONE },
-    {    0x13,    "INC HL",          InstructionType::INC16,          ArgumentType::NONE,             ArgumentType::HL,               ConditionType::NONE },
+    {    0x23,    "INC HL",          InstructionType::INC16,          ArgumentType::NONE,             ArgumentType::HL,               ConditionType::NONE },
     {    0x24,    "INC H",           InstructionType::INC,            ArgumentType::NONE,             ArgumentType::H,                ConditionType::NONE },
     {    0x25,    "DEC H",           InstructionType::DEC,            ArgumentType::NONE,             ArgumentType::H,                ConditionType::NONE },
     {    0x26,    "LD H,d8",         InstructionType::LD,             ArgumentType::H,                ArgumentType::IMM_8,            ConditionType::NONE },
@@ -353,7 +353,7 @@ static Instruction kInstructions[] = {
     {    0xD9,    "RETI",            InstructionType::RETI,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
     {    0xDA,    "JP C,a16",        InstructionType::JP,             ArgumentType::NONE,             ArgumentType::IMM_16,           ConditionType::C    },
     {    0xDB,    "NONE",            InstructionType::NONE,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },  // no instruction
-    {    0xDC,    "CALL C,a16",      InstructionType::CALL,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::C    },
+    {    0xDC,    "CALL C,a16",      InstructionType::CALL,           ArgumentType::NONE,             ArgumentType::IMM_16,           ConditionType::C    },
     {    0xDD,    "NONE",            InstructionType::NONE,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },  // no instruction
     {    0xDE,    "SBC A,d8",        InstructionType::SBC,            ArgumentType::NONE,             ArgumentType::IMM_8,            ConditionType::NONE },
     {    0xDF,    "RST 18h",         InstructionType::RST,            ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
@@ -382,7 +382,7 @@ static Instruction kInstructions[] = {
     {    0xF2,    "LDH A,(C)",       InstructionType::LDH,            ArgumentType::A,                ArgumentType::MEM_AT_C,         ConditionType::NONE },
     {    0xF3,    "DI",              InstructionType::DI,             ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
     {    0xF4,    "NONE",            InstructionType::NONE,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },  // no instruction
-    {    0xF5,    "PUSH SP",         InstructionType::PUSH,           ArgumentType::NONE,             ArgumentType::SP,               ConditionType::NONE },
+    {    0xF5,    "PUSH AF",         InstructionType::PUSH,           ArgumentType::NONE,             ArgumentType::AF,               ConditionType::NONE },
     {    0xF6,    "OR A,u8",         InstructionType::OR,             ArgumentType::NONE,             ArgumentType::IMM_8,            ConditionType::NONE },
     {    0xF7,    "RST 30h",         InstructionType::RST,            ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
     {    0xF8,    "LD HL,SP+r8",     InstructionType::LD_HL_SP_R8,    ArgumentType::HL,               ArgumentType::IMM_8,            ConditionType::NONE },
@@ -393,4 +393,15 @@ static Instruction kInstructions[] = {
     {    0xFD,    "NONE",            InstructionType::NONE,           ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },  // no instruction
     {    0xFE,    "CP d8",           InstructionType::CP,             ArgumentType::NONE,             ArgumentType::IMM_8,            ConditionType::NONE },
     {    0xFF,    "RST 38h",         InstructionType::RST,            ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
+};
+
+static constexpr ArgumentType kArgumentTypeFromCBSource[] = {
+    ArgumentType::B,
+    ArgumentType::C,
+    ArgumentType::D,
+    ArgumentType::E,
+    ArgumentType::H,
+    ArgumentType::L,
+    ArgumentType::MEM_AT_HL,
+    ArgumentType::A,
 };

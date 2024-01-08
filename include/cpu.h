@@ -78,6 +78,17 @@ class CPU : public Addressable {
         uint8_t _stackPop();
         uint16_t _stackPopWord();
         void _savePCToStack();
+        void _cbRlc(ArgumentType dataSource);
+        void _cbRrc(ArgumentType dataSource);
+        void _cbRl(ArgumentType dataSource);
+        void _cbRr(ArgumentType dataSource);
+        void _cbSla(ArgumentType dataSource);
+        void _cbSra(ArgumentType dataSource);
+        void _cbSwap(ArgumentType dataSource);
+        void _cbSrl(ArgumentType dataSource);
+        void _cbBit(uint8_t bit, ArgumentType dataSource);
+        void _cbRes(uint8_t bit, ArgumentType dataSource);
+        void _cbSet(uint8_t bit, ArgumentType dataSource);
 
 
         Registers registers_;
