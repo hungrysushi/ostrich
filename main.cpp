@@ -80,6 +80,7 @@ int main(int argc, char** argv)
     io->timer_ = timer;
     io->cpu_ = cpu;
     io->ppu_ = ppu;
+    timer->interruptHandler_ = cpu;
 
     uint32_t lastCycles_ = 0;
     while (true) {

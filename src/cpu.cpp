@@ -57,7 +57,7 @@ int CPU::Step() {
     }
 
     if (ime_) {
-        // TODO handle interrupts
+        HandleInterrupts();
     }
 
     // set ime after 1 cycle delay
@@ -178,6 +178,68 @@ void CPU::Write(const uint16_t addr, const uint8_t value) {
         default:
             spdlog::warn("Unimplemented CPU register write: {:4X}", addr);
     }
+}
+
+void CPU::Request(const uint8_t interruptType) {
+    if_ |= interruptType;
+}
+
+void CPU::HandleInterrupts() {
+    // both IE and IF need to be set
+    if ((ie_ & kInterruptVBlank) && (if_ & kInterruptVBlank)) {
+        CallVector(0x40);
+        // clear interrupt flags
+        if_ &= ~kInterruptVBlank;
+        halted_ = false;
+        ime_ = false;
+        return;
+    }
+
+    if ((ie_ & kInterruptLCD) && (if_ & kInterruptLCD)) {
+        CallVector(0x48);
+        if_ &= ~kInterruptLCD;
+        halted_ = false;
+        ime_ = false;
+        return;
+    }
+
+    if ((ie_ & kInterruptTimer) && (if_ & kInterruptTimer)) {
+        CallVector(0x50);
+        if_ &= ~kInterruptTimer;
+        halted_ = false;
+        ime_ = false;
+        return;
+    }
+
+    if ((ie_ & kInterruptSerial) && (if_ & kInterruptSerial)) {
+        CallVector(0x58);
+        if_ &= ~kInterruptSerial;
+        halted_ = false;
+        ime_ = false;
+        return;
+    }
+
+    if ((ie_ & kInterruptJoypad) && (if_ & kInterruptJoypad)) {
+        CallVector(0x60);
+        if_ &= ~kInterruptJoypad;
+        halted_ = false;
+        ime_ = false;
+        return;
+    }
+}
+
+void CPU::CallVector(uint16_t address) {
+    // this whole thing is supposed to take 5 m-cycles
+    // stash current PC
+    uint8_t upper = (uint8_t) (registers_.ProgramCounter() >> 8) & 0xFF;
+    uint8_t lower = (uint8_t) registers_.ProgramCounter() & 0xFF;
+
+    registers_.StackPointer()--;
+    memory_->Write(registers_.StackPointer(), upper);
+    registers_.StackPointer()--;
+    memory_->Write(registers_.StackPointer(), lower);
+
+    registers_.ProgramCounter() = address;
 }
 
 //--------

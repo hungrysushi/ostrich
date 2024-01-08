@@ -4,10 +4,11 @@
 
 #include "registers.h"
 #include "interface/addressable.h"
+#include "interface/interrupt_handler.h"
 #include "instructions.h"
 
 
-class CPU : public Addressable {
+class CPU : public Addressable, public InterruptHandler {
     public:
         CPU();
         virtual ~CPU();
@@ -20,6 +21,9 @@ class CPU : public Addressable {
 
         const uint8_t Read(const uint16_t addr);
         void Write(const uint16_t addr, const uint8_t value);
+        void Request(const uint8_t interruptType);
+        void HandleInterrupts();
+        void CallVector(uint16_t address);
 
         // handlers
         void _nop(InstructionContext& context);

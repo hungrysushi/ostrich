@@ -35,7 +35,7 @@ void Timer::Tick() {
         if (tima_ == 0xFF) {
             tima_ = tma_;
 
-            /* interruptHandler_->RequestInterrupt(kTimerInterrupt); */
+            interruptHandler_->Request(kInterruptTimer);
         }
     }
 }
