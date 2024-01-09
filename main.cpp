@@ -5,6 +5,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "SDL2/SDL.h"
@@ -131,6 +132,30 @@ void updateSerialDebugMessage(std::shared_ptr<IO> io) {
 }
 
 
+void runGameboy(std::shared_ptr<CPU> cpu, std::shared_ptr<Timer> timer, std::shared_ptr<PPU> ppu) {
+    uint32_t lastCycles_ = 0;
+    while (!quit) {
+        if (cpu->Step() < 0) {
+            std::cout << "Error in CPU step\n";
+            break;
+        }
+
+        int elapsed = cpu->cycles_ - lastCycles_;
+        // timer ticks 4 times every m cycle
+        for (int i = 0; i < 4 * elapsed; i++) {
+            timer->Tick();
+            ppu->Tick();
+        }
+        lastCycles_ = cpu->cycles_;
+
+        /* updateSerialDebugMessage(io); */
+        /* if (message.length() > 0) { */
+        /*     std::cout << "DEBUG: " << message << "\n"; */
+        /* } */
+    }
+}
+
+
 int main(int argc, char** argv)
 {
     spdlog::set_level(spdlog::level::trace);
@@ -165,29 +190,15 @@ int main(int argc, char** argv)
 
     initWindow();
 
+    std::thread t1(runGameboy, cpu, timer, ppu);
+
     uint32_t lastCycles_ = 0;
     while (!quit) {
-        if (cpu->Step() < 0) {
-            std::cout << "Error in CPU step\n";
-            break;
-        }
-
-        int elapsed = cpu->cycles_ - lastCycles_;
-        // timer ticks 4 times every m cycle
-        for (int i = 0; i < 4 * elapsed; i++) {
-            timer->Tick();
-            ppu->Tick();
-        }
-        lastCycles_ = cpu->cycles_;
-
-        updateSerialDebugMessage(io);
-        if (message.length() > 0) {
-            std::cout << "DEBUG: " << message << "\n";
-        }
-
         updateWindow(ppu);
         handleWindowEvents();
     }
+
+    t1.join();
 
     return 0;
 }
