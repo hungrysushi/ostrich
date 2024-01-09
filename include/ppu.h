@@ -1,18 +1,24 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "interface/addressable.h"
+#include "interface/interrupt_handler.h"
 
 
+const uint32_t kLCDWidth = 160;
+const uint32_t kLCDHeight = 144;
+
+const uint32_t kCyclesPerOam = 80;
 const uint32_t kCyclesPerLine = 456;
 const uint32_t kLinesPerFrame = 154;
 
 const uint8_t kLCDStatIntLyc = 0x01 << 6;
 const uint8_t kLCDStatIntOam = 0x01 << 5; // Mode 2
-const uint8_t kLCDStatIntHblank = 0x01 << 4; // Mode 1
-const uint8_t kLCDStatIntVblank = 0x01 << 3; // Mode 0
+const uint8_t kLCDStatIntHBlank = 0x01 << 4; // Mode 1
+const uint8_t kLCDStatIntVBlank = 0x01 << 3; // Mode 0
 const uint8_t kLCDStatLyc = 0x01 << 2;
 
 const uint8_t kLCDControlEnable = 0x01 << 7;
@@ -45,12 +51,13 @@ public:
 
     enum Mode {HBLANK, VBLANK, OAM, VRAM_TRANSFER};
 
+    void Tick();
+    void MoveToNextLine();
+
     const uint8_t Read(const uint16_t addr);
     void Write(const uint16_t addr, const uint8_t value);
     const uint8_t OAMRead(const uint16_t addr);
     void OAMWrite(const uint16_t addr, const uint8_t value);
-
-    void Tick();
 
     void SetMode(Mode mode);
     Mode GetMode();
@@ -62,9 +69,12 @@ public:
     void ClearLCDControl(uint8_t type);
 
     uint64_t cycles_ = 0;
+    uint64_t frames_ = 0;
 
     std::vector<OAMData> oam_ = std::vector<OAMData>(40);
     std::vector<uint8_t> vram_ = std::vector<uint8_t>(0x2000);
+
+    std::shared_ptr<InterruptHandler> interruptHandler_ = nullptr;
 
     // LCD
     uint8_t lcdc_ = 0x91; // 0xFF40

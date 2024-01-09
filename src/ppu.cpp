@@ -8,39 +8,67 @@ PPU::PPU() { }
 PPU::~PPU() { }
 
 void PPU::Tick() {
-    cycles_++;
+    cycles_++;  // cycles in this current line
 
-    if (GetMode() == OAM) {
-        if (cycles_ >= 80) {
-            SetMode(VRAM_TRANSFER);
-        }
-    } else if (GetMode() == VRAM_TRANSFER) { // process pixel pipeline
-        if (cycles_ >= 252) {
-            SetMode(HBLANK);
-        }
-    } else if (GetMode() == VBLANK) {
-        if (cycles_ >= 456) {
-            ly_++; // increment ly
-
-            if (ly_ >= kLinesPerFrame) {
-                SetMode(OAM);
-                ly_ = 0;
+    switch(GetMode()) {
+        case OAM:
+            if (cycles_ >= kCyclesPerOam) {
+                SetMode(VRAM_TRANSFER);
             }
+            break;
+        case VRAM_TRANSFER: // process pixel pipeline
+            if (cycles_ >= 80 + 172) { // xres pixels sent
+                SetMode(HBLANK);
 
-            cycles_ = 0;
-        }
-    } else if (GetMode() == HBLANK) {
-        if (cycles_ >= 456) {
-            ly_++; // increment ly
-
-            if (ly_ >= 144) {
-                SetMode(VBLANK);
-            } else {
-                SetMode(OAM);
+                if (GetLCDStat(kLCDStatIntHBlank)) {
+                    interruptHandler_->Request(kInterruptLCD);
+                }
             }
+            break;
+        case HBLANK:
+            if (cycles_ >= kCyclesPerLine) {
+                MoveToNextLine();
 
-            cycles_ = 0;
+                if (ly_ >= kLCDHeight) { // line is now outside the visible screen
+                    SetMode(VBLANK);
+
+                    interruptHandler_->Request(kInterruptVBlank);
+
+                    if (GetLCDStat(kLCDStatIntVBlank)) {
+                        interruptHandler_->Request(kInterruptLCD);
+                    }
+                } else {
+                    SetMode(OAM);
+                }
+
+                cycles_ = 0;
+            }
+            break;
+        case VBLANK:
+            if (cycles_ >= kCyclesPerLine) {
+                MoveToNextLine()
+
+                if (ly_ >= kLinesPerFrame) {
+                    SetMode(OAM);
+                    ly_ = 0;
+                }
+
+                cycles_ = 0;
+            }
+            break;
+    }
+}
+
+void PPU::MoveToNextLine() {
+    ly_++;
+    if (ly_ == lyc_) {
+        SetLCDStat(kLCDStatLyc);
+
+        if (GetLCDStat(kLCDStatIntLyc)) {
+            interruptHandler_->Request(kInterruptLCD);
         }
+    } else {
+        ClearLCDStat(kLCDStatLyc);
     }
 }
 
