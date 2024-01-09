@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -6,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "SDL2/SDL.h"
 #include "spdlog/spdlog.h"
 
 #include "address_bus.h"
@@ -17,6 +19,83 @@
 
 
 std::string message = "";
+
+SDL_Window* sdlWindow;
+SDL_Renderer* sdlRenderer;
+SDL_Texture* sdlTexture;
+SDL_Surface* sdlScreen;
+
+int scale = 2; // TODO make configurable
+
+std::atomic<bool> quit{false};
+
+
+void initWindow() {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cout << "Failed to init SDL2\n";
+        exit(-1);
+    }
+
+    SDL_CreateWindowAndRenderer(kLCDWidth * scale, kLCDHeight * scale, 0, &sdlWindow, &sdlRenderer);
+    sdlScreen = SDL_CreateRGBSurface(0,
+                                     kLCDWidth * scale,
+                                     kLCDHeight * scale,
+                                     32,
+                                     0,
+                                     0,
+                                     0,
+                                     0);
+    sdlTexture = SDL_CreateTexture(sdlRenderer,
+                                   SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_STREAMING,
+                                   kLCDWidth * scale,
+                                   kLCDHeight * scale);
+}
+
+
+void updateWindow(std::shared_ptr<PPU> ppu) {
+    SDL_Rect rect;
+    rect.x = rect.y = 0;
+    rect.w = sdlScreen->w;
+    rect.h = sdlScreen->h;
+
+    // mimic how the ppu updates - left-to-right line-by-line
+    for (int y = 0; y < kLCDHeight; y++) {
+        for (int x = 0; x < kLCDWidth; x++) {
+            rect.x = x * scale;
+            rect.y = y * scale;
+            rect.w = scale;
+            rect.h = scale;
+
+            SDL_FillRect(sdlScreen, &rect, ppu->screenBuffer_[x + (y * 160)]);
+        }
+    }
+
+    SDL_UpdateTexture(sdlTexture, nullptr, sdlScreen->pixels, sdlScreen->pitch);
+	SDL_RenderClear(sdlRenderer);
+	SDL_RenderCopy(sdlRenderer, sdlTexture, nullptr, nullptr);
+	SDL_RenderPresent(sdlRenderer);
+}
+
+
+void handleWindowEvents() {
+    SDL_Event e;
+    while (SDL_PollEvent(&e) > 0) {
+        switch (e.type) {
+            case SDL_QUIT:
+                quit = true;
+                break;
+            case SDL_WINDOWEVENT:
+                if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+                    quit = true;
+                }
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+                /* handleKeyPress(e); */
+            default: break;
+        }
+    }
+}
 
 
 std::vector<uint8_t> loadRom(const std::string& filename)
@@ -84,8 +163,10 @@ int main(int argc, char** argv)
     ppu->memory_ = addressBus;
     ppu->interruptHandler_ = cpu;
 
+    initWindow();
+
     uint32_t lastCycles_ = 0;
-    while (true) {
+    while (!quit) {
         if (cpu->Step() < 0) {
             std::cout << "Error in CPU step\n";
             break;
@@ -103,6 +184,9 @@ int main(int argc, char** argv)
         if (message.length() > 0) {
             std::cout << "DEBUG: " << message << "\n";
         }
+
+        updateWindow(ppu);
+        handleWindowEvents();
     }
 
     return 0;
