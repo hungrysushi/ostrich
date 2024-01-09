@@ -10,6 +10,11 @@ PPU::~PPU() { }
 void PPU::Tick() {
     cycles_++;  // cycles in this current line
 
+    // process DMA every m-cycle
+    if (dmaActive_ && cycles_ % 4 == 0) {
+        DMAProcess();
+    }
+
     switch(GetMode()) {
         case OAM_SCAN:
             if (cycles_ >= kCyclesPerOamScan) {
@@ -95,12 +100,38 @@ void PPU::ProcessPixelPipeline() {
     // TODO
 }
 
+void PPU::DMAInit(const uint8_t start) {
+    dmaActive_ = true;
+    dmaByte_ = 0;
+    dmaStartDelay_ = 2;
+    dmaOffset_ = start;
+}
+
+void PPU::DMAProcess() {
+    // dma doesn't start immediately
+    if (dmaStartDelay_ > 0) {
+        dmaStartDelay_--;
+        return;
+    }
+
+    OAMWrite(dmaByte_, memory_->Read((dmaOffset_ * 0x100) + dmaByte_));
+    dmaByte_++;
+
+    if (dmaByte_ >= 0xA0) { // 160 bytes transferred
+        dmaActive_ = false;
+    }
+}
+
 const uint8_t PPU::Read(const uint16_t addr) {
     if (addr >= 0x8000 && addr < 0xA000) {
         return vram_[addr - 0x8000];
     }
 
     if (addr >= 0xFE00 && addr <= 0xFE9F) {
+        if (dmaActive_) {
+            return 0xFF;
+        }
+
         return OAMRead(addr - 0xFE00);
     }
 
@@ -118,6 +149,8 @@ const uint8_t PPU::Read(const uint16_t addr) {
             return 0x94;
         case 0xFF45:
             return lyc_;
+        case 0xFF46:
+            return dmaOffset_;
         case 0xFF47:
             return bgp_;
         case 0xFF48:
@@ -141,6 +174,10 @@ void PPU::Write(const uint16_t addr, const uint8_t value) {
     }
 
     if (addr >= 0xFE00 && addr < 0xFE9F) {
+        if (dmaActive_) {
+            return;
+        }
+
         return OAMWrite(addr - 0xFE00, value);
     }
 
@@ -162,6 +199,9 @@ void PPU::Write(const uint16_t addr, const uint8_t value) {
             return;
         case 0xFF45:
             lyc_ = value;
+            return;
+        case 0xFF46:
+            DMAInit(value);
             return;
         case 0xFF4A:
             wy_ = value;

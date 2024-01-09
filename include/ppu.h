@@ -58,6 +58,9 @@ public:
     void ResetPixelPipeline();
     void ProcessPixelPipeline();
 
+    void DMAInit(const uint8_t start);
+    void DMAProcess();
+
     const uint8_t Read(const uint16_t addr);
     void Write(const uint16_t addr, const uint8_t value);
     const uint8_t OAMRead(const uint16_t addr);
@@ -97,4 +100,11 @@ public:
 
     std::queue<uint32_t> backgroundFIFO_;
     std::queue<uint32_t> spriteFIFO_;
+
+    // DMA
+    std::shared_ptr<Addressable> memory_ = nullptr;
+    uint8_t dmaOffset_ = 0; // 0xFF46
+    bool dmaActive_ = false;
+    uint8_t dmaByte_;
+    uint8_t dmaStartDelay_;
 };

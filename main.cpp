@@ -73,14 +73,16 @@ int main(int argc, char** argv)
     std::shared_ptr<PPU> ppu = std::make_shared<PPU>();
 
     // connect up components
+    cpu->memory_ = addressBus;
     addressBus->cart_ = cart;
     addressBus->io_ = io;
     addressBus->ppu_ = ppu;
-    cpu->memory_ = addressBus;
     io->timer_ = timer;
     io->cpu_ = cpu;
     io->ppu_ = ppu;
     timer->interruptHandler_ = cpu;
+    ppu->memory_ = addressBus;
+    ppu->interruptHandler_ = cpu;
 
     uint32_t lastCycles_ = 0;
     while (true) {
