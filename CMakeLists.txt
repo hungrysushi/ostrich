@@ -20,3 +20,9 @@ target_include_directories(gb_ostrich PUBLIC
 
 add_subdirectory(external/spdlog)
 target_link_libraries(gb_ostrich PRIVATE spdlog::spdlog_header_only)
+
+add_subdirectory(external/SDL)
+if (TARGET SDL2::SDL2main)
+    target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2main)
+endif()
+target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2)
