@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <queue>
 #include <vector>
 
 #include "interface/addressable.h"
@@ -11,7 +12,7 @@
 const uint32_t kLCDWidth = 160;
 const uint32_t kLCDHeight = 144;
 
-const uint32_t kCyclesPerOam = 80;
+const uint32_t kCyclesPerOamScan = 80;
 const uint32_t kCyclesPerLine = 456;
 const uint32_t kLinesPerFrame = 154;
 
@@ -49,10 +50,13 @@ public:
     PPU();
     virtual ~PPU();
 
-    enum Mode {HBLANK, VBLANK, OAM, VRAM_TRANSFER};
+    enum Mode {HBLANK, VBLANK, OAM_SCAN, PIXEL_TRANSFER};
 
     void Tick();
     void MoveToNextLine();
+    void ScanOAM(const uint8_t index);
+    void ResetPixelPipeline();
+    void ProcessPixelPipeline();
 
     const uint8_t Read(const uint16_t addr);
     void Write(const uint16_t addr, const uint8_t value);
@@ -74,6 +78,8 @@ public:
     std::vector<OAMData> oam_ = std::vector<OAMData>(40);
     std::vector<uint8_t> vram_ = std::vector<uint8_t>(0x2000);
 
+    std::vector<uint32_t> screenBuffer_ = std::vector<uint32_t>(kLCDHeight * kLCDWidth);
+
     std::shared_ptr<InterruptHandler> interruptHandler_ = nullptr;
 
     // LCD
@@ -88,4 +94,7 @@ public:
     uint8_t obp1_ = 0xFF; // 0xFF49
     uint8_t wy_ = 0; // 0xFF4A
     uint8_t wx_ = 0; // 0xFF4B
+
+    std::queue<uint32_t> backgroundFIFO_;
+    std::queue<uint32_t> spriteFIFO_;
 };

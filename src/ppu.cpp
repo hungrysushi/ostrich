@@ -11,12 +11,22 @@ void PPU::Tick() {
     cycles_++;  // cycles in this current line
 
     switch(GetMode()) {
-        case OAM:
-            if (cycles_ >= kCyclesPerOam) {
-                SetMode(VRAM_TRANSFER);
+        case OAM_SCAN:
+            if (cycles_ >= kCyclesPerOamScan) {
+                SetMode(PIXEL_TRANSFER);
+
+                ResetPixelPipeline();
             }
+
+            // scan OAM for sprites, using the first 40 cycles as the index to check
+            if (cycles_ < 40) {
+                ScanOAM(cycles_);
+            }
+
             break;
-        case VRAM_TRANSFER: // process pixel pipeline
+        case PIXEL_TRANSFER: // process and push pixels
+            ProcessPixelPipeline();
+
             if (cycles_ >= 80 + 172) { // xres pixels sent
                 SetMode(HBLANK);
 
@@ -38,7 +48,7 @@ void PPU::Tick() {
                         interruptHandler_->Request(kInterruptLCD);
                     }
                 } else {
-                    SetMode(OAM);
+                    SetMode(OAM_SCAN);
                 }
 
                 cycles_ = 0;
@@ -46,10 +56,10 @@ void PPU::Tick() {
             break;
         case VBLANK:
             if (cycles_ >= kCyclesPerLine) {
-                MoveToNextLine()
+                MoveToNextLine();
 
                 if (ly_ >= kLinesPerFrame) {
-                    SetMode(OAM);
+                    SetMode(OAM_SCAN);
                     ly_ = 0;
                 }
 
@@ -70,6 +80,19 @@ void PPU::MoveToNextLine() {
     } else {
         ClearLCDStat(kLCDStatLyc);
     }
+}
+
+void PPU::ScanOAM(const uint8_t index) {
+    // TODO
+}
+
+void PPU::ResetPixelPipeline() {
+    backgroundFIFO_ = {};
+    spriteFIFO_ = {};
+}
+
+void PPU::ProcessPixelPipeline() {
+    // TODO
 }
 
 const uint8_t PPU::Read(const uint16_t addr) {
