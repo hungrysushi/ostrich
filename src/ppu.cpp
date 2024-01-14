@@ -32,7 +32,7 @@ void PPU::Tick() {
         case PIXEL_TRANSFER: // process and push pixels
             ProcessPixelPipeline();
 
-            if (cycles_ >= 80 + 172) { // xres pixels sent
+            if (lcdPushedX_ >= kLCDWidth) { // xres pixels sent
                 SetMode(HBLANK);
 
                 if (GetLCDStat(kLCDStatIntHBlank)) {
@@ -94,10 +94,105 @@ void PPU::ScanOAM(const uint8_t index) {
 void PPU::ResetPixelPipeline() {
     backgroundFIFO_ = {};
     spriteFIFO_ = {};
+
+    // background fetcher state
+    fetcherX_ = 0;
+    lcdPushedX_ = 0;
+    lcdLineX_ = 0;
 }
 
 void PPU::ProcessPixelPipeline() {
-    // TODO
+    // state machine for processing background, window, and sprite pixels
+    // processed every other dot, to simulate each of the first 4 stages taking two dots
+    if (cycles_ % 2) {
+        switch(fetchStep_) {
+            case TILE: FetchTile(); break;
+            case DATALOW: FetchTileDataLow(); break;
+            case DATAHIGH: FetchTileDataHigh(); break;
+            case SLEEP: FetchSleep(); break;
+            case PUSH: PushToFIFO(); break; // in the actual process, push happens every dot
+        }
+    }
+
+    PushPixelToLCD();
+}
+
+void PPU::FetchTile() {
+    if (GetLCDControl(kLCDControlBGWinEnable)) {
+        uint8_t mapY = ly_ + scy_;
+        uint8_t mapX = fetcherX_ + scx_;
+        uint16_t addr = GetBackgroundTileMapArea() + (mapX / 8) + (mapY / 8) * 32;
+
+        tileNumber_ = memory_->Read(addr);
+        if (!GetLCDControl(kLCDControlBGWinTileDataAreaSelect)) { // offset address based on addressing mode for tile
+            tileNumber_ += 128;
+        }
+    }
+
+    fetchStep_ = DATALOW;
+    fetcherX_ += 8;
+}
+
+void PPU::FetchTileDataLow() {
+    uint8_t mapY = ly_ + scy_;
+    uint8_t tileY = (mapY % 8) * 2;
+    uint16_t addr = GetTileDataArea() + (tileNumber_ * 16) + tileY;
+
+    tileDataLow_ = memory_->Read(addr);
+
+    fetchStep_ = DATAHIGH;
+}
+
+void PPU::FetchTileDataHigh() {
+    uint8_t mapY = ly_ + scy_;
+    uint8_t tileY = (mapY % 8) * 2;
+    uint16_t addr = GetTileDataArea() + (tileNumber_ * 16) + tileY + 1;
+
+    tileDataHigh_ = memory_->Read(addr);
+
+    fetchStep_ = SLEEP;
+}
+
+void PPU::FetchSleep() {
+    fetchStep_ = PUSH;
+}
+
+void PPU::PushToFIFO() {
+    if (backgroundFIFO_.size() > 8) {
+        return;
+    }
+
+    for (int i = 7; i >= 0; i--) {
+        bool setLow = tileDataLow_ & (0x01 << i);
+        bool setHigh = tileDataHigh_ & (0x01 << i);
+        uint8_t colorIndex = (setHigh << 1) | setLow;
+        uint32_t color = kDefaultColors_[backgroundPalette_[0]];
+
+        if (GetLCDControl(kLCDControlBGWinEnable)) {
+            color = kDefaultColors_[backgroundPalette_[colorIndex]];
+        }
+
+        if (fetcherX_ - (8 - scx_ % 8) >= 0){
+            backgroundFIFO_.push(color);
+        }
+    }
+
+    fetchStep_ = TILE;
+}
+
+void PPU::PushPixelToLCD() {
+    if (backgroundFIFO_.size() > 8) {
+        uint32_t color = backgroundFIFO_.front();
+        backgroundFIFO_.pop();
+
+        if (lcdLineX_ >= (scx_ % 8)) {
+            screenBuffer_[lcdPushedX_ + ly_ * kLCDWidth] = color;
+
+            lcdPushedX_++;
+        }
+
+        lcdLineX_++;
+    }
 }
 
 void PPU::DMAInit(const uint8_t start) {
@@ -145,8 +240,7 @@ const uint8_t PPU::Read(const uint16_t addr) {
         case 0xFF43:
             return scx_;
         case 0xFF44:
-            /* return ly_; */
-            return 0x94;
+            return ly_;
         case 0xFF45:
             return lyc_;
         case 0xFF46:
@@ -202,6 +296,10 @@ void PPU::Write(const uint16_t addr, const uint8_t value) {
             return;
         case 0xFF46:
             DMAInit(value);
+            return;
+        case 0xFF47:
+            bgp_ = value;
+            UpdatePaletteSelections(value, backgroundPalette_);
             return;
         case 0xFF4A:
             wy_ = value;
@@ -260,4 +358,23 @@ void PPU::SetLCDControl(uint8_t type) {
 
 void PPU::ClearLCDControl(uint8_t type) {
     lcdc_ &= ~type;
+}
+
+uint16_t PPU::GetBackgroundTileMapArea() {
+    return GetLCDControl(kLCDControlBGTileMapAreaSelect) ? kLCDControlBGTileMapArea1 : kLCDControlBGTileMapArea0;
+}
+
+uint16_t PPU::GetTileDataArea() {
+    return GetLCDControl(kLCDControlBGWinTileDataAreaSelect) ? kLCDControlBGWinTileDataArea1 : kLCDControlBGWinTileDataArea0;
+}
+
+uint16_t PPU::GetWindowTileMapArea() {
+    return GetLCDControl(kLCDControlWindowTileMapAreaSelect) ? kLCDControlWindowTileMapArea1 : kLCDControlWindowTileMapArea0;
+}
+
+void PPU::UpdatePaletteSelections(const uint8_t data, uint8_t* palette) {
+    // every two bits selects one of the indices from the default 4 colors
+    for (int i = 0; i < 4; i++) {
+        palette[i] = (data >> (2 * i)) & 0b11;
+    }
 }

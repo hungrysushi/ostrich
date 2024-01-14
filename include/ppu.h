@@ -23,13 +23,22 @@ const uint8_t kLCDStatIntVBlank = 0x01 << 3; // Mode 0
 const uint8_t kLCDStatLyc = 0x01 << 2;
 
 const uint8_t kLCDControlEnable = 0x01 << 7;
-const uint8_t kLCDControlWindowTileMapArea = 0x01 << 6; // same as bg tile map area
+const uint8_t kLCDControlWindowTileMapAreaSelect = 0x01 << 6; // same as bg tile map area
 const uint8_t kLCDControlWindowEnable = 0x01 << 5;
-const uint8_t kLCDControlBGWinTileDataArea = 0x01 << 4; // if set, 0x8000, otherwise 0x8800
-const uint8_t kLCDControlBGTileMapArea = 0x01 << 3; // if set, 0x9C00, otherwise 0x9800
+const uint8_t kLCDControlBGWinTileDataAreaSelect = 0x01 << 4; // if set, 0x8000, otherwise 0x8800
+const uint8_t kLCDControlBGTileMapAreaSelect = 0x01 << 3; // if set, 0x9C00, otherwise 0x9800
 const uint8_t kLCDControlObjSize = 0x01 << 2; // 16 or 8
 const uint8_t kLCDControlObjEnable = 0x01 << 1;
 const uint8_t kLCDControlBGWinEnable = 0x01 << 0;
+
+const uint16_t kLCDControlWindowTileMapArea0 = 0x9800;
+const uint16_t kLCDControlWindowTileMapArea1 = 0x9C00;
+const uint16_t kLCDControlBGWinTileDataArea0 = 0x8800;
+const uint16_t kLCDControlBGWinTileDataArea1 = 0x8000;
+const uint16_t kLCDControlBGTileMapArea0 = 0x9800;
+const uint16_t kLCDControlBGTileMapArea1 = 0x9C00;
+
+const uint32_t kDefaultColors_[4] = {0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000};
 
 
 struct OAMData {
@@ -51,12 +60,19 @@ public:
     virtual ~PPU();
 
     enum Mode {HBLANK, VBLANK, OAM_SCAN, PIXEL_TRANSFER};
+    enum PixelFetcherStep {TILE, DATALOW, DATAHIGH, SLEEP, PUSH};
 
     void Tick();
     void MoveToNextLine();
     void ScanOAM(const uint8_t index);
     void ResetPixelPipeline();
     void ProcessPixelPipeline();
+    void FetchTile();
+    void FetchTileDataLow();
+    void FetchTileDataHigh();
+    void FetchSleep();
+    void PushToFIFO();
+    void PushPixelToLCD();
 
     void DMAInit(const uint8_t start);
     void DMAProcess();
@@ -74,6 +90,10 @@ public:
     bool GetLCDControl(uint8_t type);
     void SetLCDControl(uint8_t type);
     void ClearLCDControl(uint8_t type);
+    uint16_t GetBackgroundTileMapArea();
+    uint16_t GetTileDataArea();
+    uint16_t GetWindowTileMapArea();
+    void UpdatePaletteSelections(const uint8_t data, uint8_t* palette);
 
     uint64_t cycles_ = 0;
     uint64_t frames_ = 0;
@@ -98,8 +118,17 @@ public:
     uint8_t wy_ = 0; // 0xFF4A
     uint8_t wx_ = 0; // 0xFF4B
 
+    // pixel pipeline state/vars
     std::queue<uint32_t> backgroundFIFO_;
     std::queue<uint32_t> spriteFIFO_;
+    PixelFetcherStep fetchStep_ = TILE;
+    uint8_t fetcherX_ = 0; // track where the fetcher is in the current line
+    uint8_t tileNumber_ = 0;
+    uint8_t tileDataLow_ = 0;
+    uint8_t tileDataHigh_ = 0;
+    uint8_t backgroundPalette_[4]; // holds the palette selections as indices of the defaultColors;
+    uint8_t lcdPushedX_ = 0;
+    uint8_t lcdLineX_ = 0;
 
     // DMA
     std::shared_ptr<Addressable> memory_ = nullptr;
