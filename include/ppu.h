@@ -56,6 +56,12 @@ struct OAMData {
 };
 
 
+struct SpritePixelFIFOEntry {
+    OAMData* oamData;
+    uint8_t colorIndex;
+};
+
+
 class PPU : public Addressable {
 public:
     PPU();
@@ -126,7 +132,7 @@ public:
     /* std::queue<uint32_t> backgroundFIFO_; */
     /* std::queue<uint32_t> spriteFIFO_; */
     std::queue<uint8_t> backgroundFIFO_;
-    std::queue<uint8_t> spriteFIFO_;
+    std::queue<SpritePixelFIFOEntry> spriteFIFO_;
     PixelFetcherStep fetchStep_ = TILE;
     uint8_t fetcherX_ = 0; // track where the fetcher is in the current line
     uint8_t tileNumber_ = 0;
@@ -136,6 +142,7 @@ public:
     uint8_t lcdPushedX_ = 0;
     uint8_t lcdLineX_ = 0;
     uint8_t windowY_ = 0; //
+    // sprite fifo
     std::vector<OAMData> spritesInLine_;
     std::vector<OAMData> fetchedSprites_;
     std::vector<uint8_t> oamDataLow_;
