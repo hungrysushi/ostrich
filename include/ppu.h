@@ -129,8 +129,6 @@ public:
     uint8_t wx_ = 0; // 0xFF4B
 
     // pixel pipeline state/vars
-    /* std::queue<uint32_t> backgroundFIFO_; */
-    /* std::queue<uint32_t> spriteFIFO_; */
     std::queue<uint8_t> backgroundFIFO_;
     std::queue<SpritePixelFIFOEntry> spriteFIFO_;
     PixelFetcherStep fetchStep_ = TILE;
@@ -138,17 +136,18 @@ public:
     uint8_t tileNumber_ = 0;
     uint8_t tileDataLow_ = 0;
     uint8_t tileDataHigh_ = 0;
-    uint8_t backgroundPalette_[4]; // holds the palette selections as indices of the defaultColors;
+    uint8_t backgroundPalette_[4]; // holds the palette selections as indices of the defaultColors
     uint8_t lcdPushedX_ = 0;
     uint8_t lcdLineX_ = 0;
     uint8_t windowY_ = 0; //
+    uint8_t fifoPushedX_ = 0;
     // sprite fifo
     std::vector<OAMData> spritesInLine_;
     std::vector<OAMData> fetchedSprites_;
     std::vector<uint8_t> oamDataLow_;
     std::vector<uint8_t> oamDataHigh_;
-    uint8_t sprite1Palette_[4]; // holds the palette selections as indices of the defaultColors;
-    uint8_t sprite2Palette_[4]; // holds the palette selections as indices of the defaultColors;
+    uint8_t sprite1Palette_[4]; // holds the palette selections as indices of the defaultColors
+    uint8_t sprite2Palette_[4]; // holds the palette selections as indices of the defaultColors
 
     // DMA
     std::shared_ptr<Addressable> memory_ = nullptr;

@@ -3,7 +3,9 @@
 #include "spdlog/spdlog.h"
 
 
-PPU::PPU() { }
+PPU::PPU() {
+    SetMode(OAM_SCAN);
+}
 
 PPU::~PPU() { }
 
@@ -11,7 +13,7 @@ void PPU::Tick() {
     cycles_++;  // cycles in this current line
 
     // process DMA every m-cycle
-    if (dmaActive_ && cycles_ % 4 == 0) {
+    if (cycles_ % 4 == 0) {
         DMAProcess();
     }
 
@@ -20,12 +22,13 @@ void PPU::Tick() {
             if (cycles_ >= kCyclesPerOamScan) {
                 SetMode(PIXEL_TRANSFER);
 
-                /* ResetPixelPipeline(); */
+                ResetPixelPipeline();
             }
 
             // scan OAM for sprites, using the first 40 cycles as the index to check
             /* if (cycles_ < 40) { */
             if (cycles_ == 1) {
+                spritesInLine_ = {};
                 ScanOAM(cycles_);
             }
 
@@ -34,7 +37,6 @@ void PPU::Tick() {
             ProcessPixelPipeline();
 
             if (lcdPushedX_ >= kLCDWidth) { // xres pixels sent
-                ResetPixelPipeline();
                 SetMode(HBLANK);
 
                 if (GetLCDStat(kLCDStatIntHBlank)) {
@@ -98,6 +100,7 @@ void PPU::MoveToNextLine() {
 void PPU::ScanOAM(const uint8_t index) {
     uint8_t spriteHeight = GetSpriteHeight();
     spritesInLine_ = {};
+
     for (auto& oamEntry : oam_) {
         if (oamEntry.x == 0) { // skip invisible sprite
             continue;
@@ -120,14 +123,11 @@ void PPU::ResetPixelPipeline() {
     spriteFIFO_ = {};
 
     // background fetcher state
+    fetchStep_ = TILE;
     fetcherX_ = 0;
     lcdPushedX_ = 0;
     lcdLineX_ = 0;
-
-    spritesInLine_ = {};
-    fetchedSprites_ = {};
-    oamDataLow_ = {};
-    oamDataHigh_ = {};
+    fifoPushedX_ = 0;
 }
 
 void PPU::ProcessPixelPipeline() {
@@ -196,21 +196,24 @@ void PPU::FetchTileDataLow() {
     tileDataLow_ = memory_->Read(addr);
 
     // fetch sprite low bytes
-    uint8_t spriteHeight = GetSpriteHeight();
-    for (auto& sprite : fetchedSprites_) {
-        uint8_t tileY = ((ly_ + 16) - sprite.y) * 2;
+    oamDataLow_ = {};
+    oamDataLow_.reserve(fetchedSprites_.size());
 
-        if (sprite.yFlip) {
-            tileY = (spriteHeight * 2) - 2 - tileY; // flip vertically
+    uint8_t spriteHeight = GetSpriteHeight();
+    for (int i = 0; i < fetchedSprites_.size(); i++) {
+        uint8_t tileY = ((ly_ + 16) - fetchedSprites_[i].y) * 2;
+
+        if (fetchedSprites_[i].yFlip) {
+            tileY = (spriteHeight * 2) - 2 - tileY;
         }
 
-        uint8_t tileIndex = sprite.tileIndex;
+        uint8_t tileIndex = fetchedSprites_[i].tileIndex;
 
         if (spriteHeight == 16) {
             tileIndex &= ~(0x01);
         }
 
-        oamDataLow_.push_back(memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY));
+        oamDataLow_[i] = memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY);
     }
 
     fetchStep_ = DATAHIGH;
@@ -224,21 +227,24 @@ void PPU::FetchTileDataHigh() {
     tileDataHigh_ = memory_->Read(addr);
 
     // fetch sprite high bytes
-    uint8_t spriteHeight = GetSpriteHeight();
-    for (auto& sprite : fetchedSprites_) {
-        uint8_t tileY = ((ly_ + 16) - sprite.y) * 2;
+    oamDataHigh_ = {};
+    oamDataHigh_.reserve(fetchedSprites_.size());
 
-        if (sprite.yFlip) {
-            tileY = (spriteHeight * 2) - 2 - tileY; // flip vertically
+    uint8_t spriteHeight = GetSpriteHeight();
+    for (int i = 0; i < fetchedSprites_.size(); i++) {
+        uint8_t tileY = ((ly_ + 16) - fetchedSprites_[i].y) * 2;
+
+        if (fetchedSprites_[i].yFlip) {
+            tileY = (spriteHeight * 2) - 2 - tileY;
         }
 
-        uint8_t tileIndex = sprite.tileIndex;
+        uint8_t tileIndex = fetchedSprites_[i].tileIndex;
 
         if (spriteHeight == 16) {
             tileIndex &= ~(0x01);
         }
 
-        oamDataHigh_.push_back(memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY + 1));
+        oamDataHigh_[i] = memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY + 1);
     }
 
     fetchStep_ = SLEEP;
@@ -263,63 +269,90 @@ void PPU::PushToFIFO() {
             color = backgroundPalette_[colorIndex];
         }
 
+        // rather than mixing separately, just decide on the sprite pixel to show here
+        if (GetLCDControl(kLCDControlObjEnable)) {
+            for (int i = 0; i < fetchedSprites_.size(); i++) {
+                int spriteX = (fetchedSprites_[i].x - 8) + scx_ % 8;
+                if (fifoPushedX_ > (spriteX + 8)) {
+                    continue;
+                }
+
+                int offset = fifoPushedX_ - spriteX;
+                if (offset < 0 || offset > 7) {
+                    continue;
+                }
+
+                uint8_t bit = 7 - offset;
+                if (fetchedSprites_[i].xFlip) {
+                    bit = offset;
+                }
+
+                bool low = oamDataLow_[i] & (0x01 << bit);
+                bool high = oamDataHigh_[i] & (0x01 << bit);
+                uint8_t spriteColorIndex = (high << 1) | low;
+
+                if (spriteColorIndex == 0) {
+                    continue; // ignore transparent color
+                }
+
+                if (!fetchedSprites_[i].priority || colorIndex == 0) {
+                    color = fetchedSprites_[i].palette ? sprite2Palette_[spriteColorIndex] : sprite1Palette_[spriteColorIndex];
+                }
+            }
+        }
+
         if (fetcherX_ - (8 - scx_ % 8) >= 0){ // check outside loop?
             backgroundFIFO_.push(color);
+            fifoPushedX_++;
         }
     }
 
     fetchStep_ = TILE;
 
-    if (spriteFIFO_.size() <= 8) {
-        for (int i = 0; i < fetchedSprites_.size(); i++) {
-            int spriteX = (fetchedSprites_[i].x - 8) + scx_ % 8;
-            /* if (backgroundFIFO_.size() > (spriteX + 8)) { */
-            /*     continue; */
-            /* } */
+    /* spdlog::info("Pushing to sprite FIFO"); */
+    /* if (spriteFIFO_.size() <= 8) { */
+    /*     for (int i = 0; i < fetchedSprites_.size(); i++) { */
+    /*         spdlog::info("fetched sprite: {}", fetchedSprites_[i].x); */
+    /*         int spriteX = (fetchedSprites_[i].x - 8) + scx_ % 8; */
+    /*         /1* if (backgroundFIFO_.size() > (spriteX + 8)) { *1/ */
+    /*         /1*     continue; *1/ */
+    /*         /1* } *1/ */
 
-            int offset = backgroundFIFO_.size() - spriteX;
-            /* if (offset < 0 || offset > 7) { */
-            /*     continue; */
-            /* } */
+    /*         int offset = backgroundFIFO_.size() - spriteX; */
+    /*         /1* if (offset < 0 || offset > 7) { *1/ */
+    /*         /1*     continue; *1/ */
+    /*         /1* } *1/ */
 
-            uint8_t bit = 7 - offset;
-            if (fetchedSprites_[i].xFlip) {
-                bit = offset;
-            }
+    /*         uint8_t bit = 7 - offset; */
+    /*         if (fetchedSprites_[i].xFlip) { */
+    /*             bit = offset; */
+    /*         } */
 
-            bool low = oamDataLow_[i] & (0x01 << bit);
-            bool high = oamDataHigh_[i] & (0x01 << bit);
-            uint8_t colorIndex = (high << 1) | low;
+    /*         bool low = oamDataLow_[i] & (0x01 << bit); */
+    /*         bool high = oamDataHigh_[i] & (0x01 << bit); */
+    /*         uint8_t colorIndex = (high << 1) | low; */
 
-            if (colorIndex == 0) {
-                continue; // ignore transparent color
-            }
+    /*         if (colorIndex == 0) { */
+    /*             continue; // ignore transparent color */
+    /*         } */
 
-            SpritePixelFIFOEntry entry;
-            entry.oamData = fetchedSprites_.data() + i;
-            if (fetchedSprites_[i].palette) {
-                entry.colorIndex = sprite2Palette_[colorIndex];
-            } else {
-                entry.colorIndex = sprite1Palette_[colorIndex];
-            }
-            spriteFIFO_.push(entry);
-        }
-    }
+    /*         SpritePixelFIFOEntry entry; */
+    /*         entry.oamData = fetchedSprites_.data() + i; */
+    /*         if (fetchedSprites_[i].palette) { */
+    /*             entry.colorIndex = sprite2Palette_[colorIndex]; */
+    /*         } else { */
+    /*             entry.colorIndex = sprite1Palette_[colorIndex]; */
+    /*         } */
+    /*         spriteFIFO_.push(entry); */
+    /*         spdlog::info("Pushed to sprite fifo"); */
+    /*     } */
+    /* } */
 }
 
 void PPU::PushPixelToLCD() {
     if (backgroundFIFO_.size() > 8) {
         uint8_t colorIndex = backgroundFIFO_.front();
         backgroundFIFO_.pop();
-
-        if (spriteFIFO_.size() > 0) {
-            SpritePixelFIFOEntry spriteData = spriteFIFO_.front();
-            spriteFIFO_.pop();
-
-            if (!(spriteData.oamData->priority) || colorIndex == 0) {
-                colorIndex = spriteData.colorIndex;
-            }
-        }
 
         if (lcdLineX_ >= (scx_ % 8)) {
             screenBuffer_[lcdPushedX_ + ly_ * kLCDWidth] = kDefaultColors[colorIndex];
@@ -339,6 +372,10 @@ void PPU::DMAInit(const uint8_t start) {
 }
 
 void PPU::DMAProcess() {
+    if (!dmaActive_) {
+        return;
+    }
+
     // dma doesn't start immediately
     if (dmaStartDelay_ > 0) {
         dmaStartDelay_--;
@@ -349,7 +386,7 @@ void PPU::DMAProcess() {
     dmaByte_++;
 
     if (dmaByte_ >= 0xA0) { // 160 bytes transferred
-        spdlog::info("DMA completed");
+        spdlog::info("DMA finished");
         dmaActive_ = false;
     }
 }
