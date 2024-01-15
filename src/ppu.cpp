@@ -94,7 +94,22 @@ void PPU::MoveToNextLine() {
 }
 
 void PPU::ScanOAM(const uint8_t index) {
-    // TODO
+    /* uint8_t spriteHeight = GetSpriteHeight(); */
+    /* for (auto& oamEntry : oam_) { */
+    /*     if (oamEntry.x == 0) { // skip invisible sprite */
+    /*         continue; */
+    /*     } */
+
+    /*     if (spritesInLine_.size() >= 10) { */
+    /*         break; */
+    /*     } */
+
+    /*     if (oamEntry.y <= ly_ + 16 && oamEntry.y + spriteHeight > ly_ + 16) { */
+    /*         spritesInLine_.push_back(oamEntry); */
+    /*     } */
+
+    /*     // sort by x? */
+    /* } */
 }
 
 void PPU::ResetPixelPipeline() {
@@ -105,6 +120,11 @@ void PPU::ResetPixelPipeline() {
     fetcherX_ = 0;
     lcdPushedX_ = 0;
     lcdLineX_ = 0;
+
+    spritesInLine_ = {};
+    fetchedSprites_ = {};
+    oamDataLow_ = {};
+    oamDataHigh_ = {};
 }
 
 void PPU::ProcessPixelPipeline() {
@@ -144,6 +164,18 @@ void PPU::FetchTile() {
         if (!GetLCDControl(kLCDControlBGWinTileDataAreaSelect)) { // offset address based on addressing mode for tile
             tileNumber_ += 128;
         }
+
+        /* if (GetLCDControl(kLCDControlObjEnable) && spritesInLine_.size() > 0) { */
+        /*     for (auto& spriteEntry : spritesInLine_) { */
+        /*         int spriteX = (spriteEntry.x - 8) + scx_ % 8; */
+
+        /*         // check if either the left or the right side of the sprite coincide with the current x */
+        /*         if ((spriteX >= fetcherX_ && spriteX < (fetcherX_ + 8)) || */
+        /*                 ((spriteX + 8) >= fetcherX_ && (spriteX + 8) < (fetcherX_ + 8))) { */
+        /*             fetchedSprites_.push_back(spriteEntry); */
+        /*         } */
+        /*     } */
+        /* } */
     }
 
     fetchStep_ = DATALOW;
@@ -157,6 +189,24 @@ void PPU::FetchTileDataLow() {
 
     tileDataLow_ = memory_->Read(addr);
 
+    /* // fetch sprite low bytes */
+    /* uint8_t spriteHeight = GetSpriteHeight(); */
+    /* for (auto& sprite : fetchedSprites_) { */
+    /*     uint8_t tileY = ((ly_ + 16) - sprite.y) * 2; */
+
+    /*     if (sprite.yFlip) { */
+    /*         tileY = (spriteHeight * 2) - 2 - tileY; // flip vertically */
+    /*     } */
+
+    /*     uint8_t tileIndex = sprite.tileIndex; */
+
+    /*     if (spriteHeight == 16) { */
+    /*         tileIndex &= ~(0x01); */
+    /*     } */
+
+    /*     oamDataLow_.push_back(memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY)); */
+    /* } */
+
     fetchStep_ = DATAHIGH;
 }
 
@@ -166,6 +216,24 @@ void PPU::FetchTileDataHigh() {
     uint16_t addr = GetTileDataArea() + (tileNumber_ * 16) + tileY + 1;
 
     tileDataHigh_ = memory_->Read(addr);
+
+    // fetch sprite high bytes
+    /* uint8_t spriteHeight = GetSpriteHeight(); */
+    /* for (auto& sprite : fetchedSprites_) { */
+    /*     uint8_t tileY = ((ly_ + 16) - sprite.y) * 2; */
+
+    /*     if (sprite.yFlip) { */
+    /*         tileY = (spriteHeight * 2) - 2 - tileY; // flip vertically */
+    /*     } */
+
+    /*     uint8_t tileIndex = sprite.tileIndex; */
+
+    /*     if (spriteHeight == 16) { */
+    /*         tileIndex &= ~(0x01); */
+    /*     } */
+
+    /*     oamDataHigh_.push_back(memory_->Read(kLCDSpriteDataArea + tileIndex * 16 + tileY + 1)); */
+    /* } */
 
     fetchStep_ = SLEEP;
 }
@@ -183,27 +251,64 @@ void PPU::PushToFIFO() {
         bool setLow = tileDataLow_ & (0x01 << i);
         bool setHigh = tileDataHigh_ & (0x01 << i);
         uint8_t colorIndex = (setHigh << 1) | setLow;
-        uint32_t color = kDefaultColors_[backgroundPalette_[0]];
+        uint8_t color = backgroundPalette_[0];
 
         if (GetLCDControl(kLCDControlBGWinEnable)) {
-            color = kDefaultColors_[backgroundPalette_[colorIndex]];
+            color = backgroundPalette_[colorIndex];
         }
 
-        if (fetcherX_ - (8 - scx_ % 8) >= 0){
+        if (fetcherX_ - (8 - scx_ % 8) >= 0){ // check outside loop?
             backgroundFIFO_.push(color);
         }
     }
 
+    /* if (spriteFIFO_.size() <= 8) { */
+    /*     for (int i = 0; i < fetchedSprites_.size(); i++) { */
+    /*         int spriteX = (fetchedSprites_[i].x - 8) + scx_ % 8; */
+    /*         if (backgroundFIFO_.size() > (spriteX + 8)) { */
+    /*             continue; */
+    /*         } */
+
+    /*         int offset = backgroundFIFO_.size() - spriteX; */
+    /*         if (offset < 0 || offset > 7) { */
+    /*             continue; */
+    /*         } */
+
+    /*         uint8_t bit = 7 - offset; */
+    /*         if (fetchedSprites_[i].xFlip) { */
+    /*             bit = offset; */
+    /*         } */
+
+    /*         bool low = oamDataLow_[i] & (0x01 << bit); */
+    /*         bool high = oamDataHigh_[i] & (0x01 << bit); */
+    /*         uint8_t colorIndex = (high << 1) | low; */
+
+    /*         if (colorIndex == 0) { */
+    /*             continue; // ignore transparent color */
+    /*         } */
+
+    /*         if (fetchedSprites_[i].palette) { */
+    /*             spriteFIFO_.push(sprite2Palette_[colorIndex]); */
+    /*         } else { */
+    /*             spriteFIFO_.push(sprite1Palette_[colorIndex]); */
+    /*         } */
+    /*     } */
+    /* } */
     fetchStep_ = TILE;
 }
 
 void PPU::PushPixelToLCD() {
     if (backgroundFIFO_.size() > 8) {
-        uint32_t color = backgroundFIFO_.front();
+        uint8_t colorIndex = backgroundFIFO_.front();
         backgroundFIFO_.pop();
 
+        /* if (spriteFIFO_.size() > 8) { */
+        /*     uint8_t spriteColorIndex = spriteFIFO_.front(); */
+        /*     spriteFIFO_.pop(); */
+        /* } */
+
         if (lcdLineX_ >= (scx_ % 8)) {
-            screenBuffer_[lcdPushedX_ + ly_ * kLCDWidth] = color;
+            screenBuffer_[lcdPushedX_ + ly_ * kLCDWidth] = kDefaultColors[colorIndex];
 
             lcdPushedX_++;
         }
@@ -318,6 +423,14 @@ void PPU::Write(const uint16_t addr, const uint8_t value) {
             bgp_ = value;
             UpdatePaletteSelections(value, backgroundPalette_);
             return;
+        case 0xFF48:
+            obp0_ = value;
+            UpdatePaletteSelections(value & 0b11111100, sprite1Palette_); // for obj the index 0 is ignored
+            return;
+        case 0xFF49:
+            obp1_ = value;
+            UpdatePaletteSelections(value & 0b11111100, sprite2Palette_);
+            return;
         case 0xFF4A:
             wy_ = value;
             return;
@@ -398,4 +511,9 @@ void PPU::UpdatePaletteSelections(const uint8_t data, uint8_t* palette) {
 
 bool PPU::WindowIsVisible() {
     return GetLCDControl(kLCDControlWindowEnable) && (wx_ - 7) < kLCDWidth && wy_ < kLCDHeight;
+    /* return GetLCDControl(kLCDControlWindowEnable) && wx_ < 166 && wy_ < kLCDHeight; */
+}
+
+uint8_t PPU::GetSpriteHeight() {
+    return GetLCDControl(kLCDControlObjSize) ? 16 : 8;
 }

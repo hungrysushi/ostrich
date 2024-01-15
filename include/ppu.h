@@ -38,7 +38,9 @@ const uint16_t kLCDControlBGWinTileDataArea1 = 0x8000;
 const uint16_t kLCDControlBGTileMapArea0 = 0x9800;
 const uint16_t kLCDControlBGTileMapArea1 = 0x9C00;
 
-const uint32_t kDefaultColors_[4] = {0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000};
+const uint16_t kLCDSpriteDataArea = 0x8000;
+
+const uint32_t kDefaultColors[4] = {0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000};
 
 
 struct OAMData {
@@ -95,6 +97,7 @@ public:
     uint16_t GetWindowTileMapArea();
     void UpdatePaletteSelections(const uint8_t data, uint8_t* palette);
     bool WindowIsVisible();
+    uint8_t GetSpriteHeight();
 
     uint64_t cycles_ = 0;
     uint64_t frames_ = 0;
@@ -120,8 +123,10 @@ public:
     uint8_t wx_ = 0; // 0xFF4B
 
     // pixel pipeline state/vars
-    std::queue<uint32_t> backgroundFIFO_;
-    std::queue<uint32_t> spriteFIFO_;
+    /* std::queue<uint32_t> backgroundFIFO_; */
+    /* std::queue<uint32_t> spriteFIFO_; */
+    std::queue<uint8_t> backgroundFIFO_;
+    std::queue<uint8_t> spriteFIFO_;
     PixelFetcherStep fetchStep_ = TILE;
     uint8_t fetcherX_ = 0; // track where the fetcher is in the current line
     uint8_t tileNumber_ = 0;
@@ -131,6 +136,12 @@ public:
     uint8_t lcdPushedX_ = 0;
     uint8_t lcdLineX_ = 0;
     uint8_t windowY_ = 0; //
+    std::vector<OAMData> spritesInLine_;
+    std::vector<OAMData> fetchedSprites_;
+    std::vector<uint8_t> oamDataLow_;
+    std::vector<uint8_t> oamDataHigh_;
+    uint8_t sprite1Palette_[4]; // holds the palette selections as indices of the defaultColors;
+    uint8_t sprite2Palette_[4]; // holds the palette selections as indices of the defaultColors;
 
     // DMA
     std::shared_ptr<Addressable> memory_ = nullptr;
