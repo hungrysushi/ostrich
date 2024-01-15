@@ -94,6 +94,7 @@ public:
     uint16_t GetTileDataArea();
     uint16_t GetWindowTileMapArea();
     void UpdatePaletteSelections(const uint8_t data, uint8_t* palette);
+    bool WindowIsVisible();
 
     uint64_t cycles_ = 0;
     uint64_t frames_ = 0;
@@ -129,6 +130,7 @@ public:
     uint8_t backgroundPalette_[4]; // holds the palette selections as indices of the defaultColors;
     uint8_t lcdPushedX_ = 0;
     uint8_t lcdLineX_ = 0;
+    uint8_t windowY_ = 0; //
 
     // DMA
     std::shared_ptr<Addressable> memory_ = nullptr;

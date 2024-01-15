@@ -66,6 +66,7 @@ void PPU::Tick() {
                 if (ly_ >= kLinesPerFrame) {
                     SetMode(OAM_SCAN);
                     ly_ = 0;
+                    windowY_ = 0;
                 }
 
                 cycles_ = 0;
@@ -84,6 +85,11 @@ void PPU::MoveToNextLine() {
         }
     } else {
         ClearLCDStat(kLCDStatLyc);
+    }
+
+    // check if window is in fetching range
+    if (WindowIsVisible() && ly_ >= wy_ && ly_ < (wy_ + kLCDHeight)) {
+        windowY_++;
     }
 }
 
@@ -119,9 +125,20 @@ void PPU::ProcessPixelPipeline() {
 
 void PPU::FetchTile() {
     if (GetLCDControl(kLCDControlBGWinEnable)) {
-        uint8_t mapY = ly_ + scy_;
-        uint8_t mapX = fetcherX_ + scx_;
-        uint16_t addr = GetBackgroundTileMapArea() + (mapX / 8) + (mapY / 8) * 32;
+        uint16_t addr = 0x00;
+
+        if (WindowIsVisible() &&
+                fetcherX_ + 7 >= wx_ && fetcherX_ + 7 < wx_ + kLCDHeight + 14 &&
+                ly_ >= wy_ && ly_ < wy_ + kLCDWidth) {
+            // render window tile over background
+
+            uint8_t windowTileY = windowY_ / 8;
+            addr = GetWindowTileMapArea() + (fetcherX_ - wx_ + 7) / 8 + windowTileY * 32;
+        } else {
+            uint8_t mapY = ly_ + scy_;
+            uint8_t mapX = fetcherX_ + scx_;
+            addr = GetBackgroundTileMapArea() + (mapX / 8) + (mapY / 8) * 32;
+        }
 
         tileNumber_ = memory_->Read(addr);
         if (!GetLCDControl(kLCDControlBGWinTileDataAreaSelect)) { // offset address based on addressing mode for tile
@@ -377,4 +394,8 @@ void PPU::UpdatePaletteSelections(const uint8_t data, uint8_t* palette) {
     for (int i = 0; i < 4; i++) {
         palette[i] = (data >> (2 * i)) & 0b11;
     }
+}
+
+bool PPU::WindowIsVisible() {
+    return GetLCDControl(kLCDControlWindowEnable) && (wx_ - 7) < kLCDWidth && wy_ < kLCDHeight;
 }
