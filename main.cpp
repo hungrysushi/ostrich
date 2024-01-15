@@ -79,7 +79,34 @@ void updateWindow(std::shared_ptr<PPU> ppu) {
 }
 
 
-void handleWindowEvents() {
+void handleKeyPress(SDL_Event e, std::shared_ptr<IO> io) {
+    SDL_KeyboardEvent keyEvent = e.key;
+
+    bool pressed = !(keyEvent.type == SDL_KEYUP);
+
+    switch(keyEvent.keysym.sym) {
+        /* case SDLK_z: io->UpdateJoypad(kIOARight, pressed); break; */
+        /* case SDLK_x: io->UpdateJoypad(kIOBLeft, pressed); break; */
+        /* case SDLK_a: io->UpdateJoypad(kIOStartDown, pressed); break; */
+        /* case SDLK_s: io->UpdateJoypad(kIOSelectUp, pressed); break; */
+        /* case SDLK_RIGHT: io->UpdateJoypad(kIOARight, pressed); break; */
+        /* case SDLK_LEFT: io->UpdateJoypad(kIOBLeft, pressed); break; */
+        /* case SDLK_DOWN: io->UpdateJoypad(kIOStartDown, pressed); break; */
+        /* case SDLK_UP: io->UpdateJoypad(kIOSelectUp, pressed); break; */
+        case SDLK_z: io->a_ = pressed; break;
+        case SDLK_x: io->b_ = pressed; break;
+        case SDLK_a: io->start_ = pressed; break;
+        case SDLK_s: io->select_ = pressed; break;
+        case SDLK_LEFT: io->left_ = pressed; break;
+        case SDLK_RIGHT: io->right_ = pressed; break;
+        case SDLK_UP: io->up_ = pressed; break;
+        case SDLK_DOWN: io->down_ = pressed; break;
+        default: spdlog::warn("Unmapped key pressed: {}", keyEvent.keysym.sym);
+    }
+}
+
+
+void handleWindowEvents(std::shared_ptr<IO> io) {
     SDL_Event e;
     while (SDL_PollEvent(&e) > 0) {
         switch (e.type) {
@@ -92,7 +119,7 @@ void handleWindowEvents() {
                 }
             case SDL_KEYDOWN:
             case SDL_KEYUP:
-                /* handleKeyPress(e); */
+                handleKeyPress(e, io);
             default: break;
         }
     }
@@ -195,7 +222,7 @@ int main(int argc, char** argv)
     uint32_t lastCycles_ = 0;
     while (!quit) {
         updateWindow(ppu);
-        handleWindowEvents();
+        handleWindowEvents(io);
     }
 
     t1.join();
