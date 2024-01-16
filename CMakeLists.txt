@@ -4,10 +4,12 @@ project(gb_ostrich)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_executable(gb_ostrich
     main.cpp
     src/address_bus.cpp
-    src/cart.cpp
+    src/cart/cart.cpp
     src/cpu.cpp
     src/io.cpp
     src/ppu.cpp

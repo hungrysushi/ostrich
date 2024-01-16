@@ -1,8 +1,6 @@
 #include <atomic>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <thread>
@@ -126,30 +124,6 @@ void handleWindowEvents(std::shared_ptr<IO> io) {
 }
 
 
-std::vector<uint8_t> loadRom(const std::string& filename)
-{
-    std::ifstream fs;
-    fs.unsetf(std::ios::skipws);
-    fs.exceptions(std::ios::badbit);
-
-    fs.open(filename, std::ios::binary);
-
-    // file length
-    fs.seekg(0, std::ios::end);
-    std::streampos length = fs.tellg();
-    fs.seekg(0, std::ios::beg);
-
-    // read whole file into a buffer
-    std::vector<uint8_t> buffer;
-    buffer.reserve(length);
-    buffer.insert(buffer.begin(),
-            std::istream_iterator<uint8_t>(fs),
-            std::istream_iterator<uint8_t>());
-
-    return buffer;
-}
-
-
 void updateSerialDebugMessage(std::shared_ptr<IO> io) {
     if (io->serialControl_ == 0x81) {
         message += io->serialData_;
@@ -193,8 +167,7 @@ int main(int argc, char** argv)
         return -1;
     }
     std::string filename(argv[1]);
-    std::vector<uint8_t> buffer = loadRom(filename);
-    std::shared_ptr<Cart> cart = std::make_shared<Cart>(buffer);
+    std::shared_ptr<Cart> cart = CreateCartridge(filename);
     std::cout << cart->Describe() << "\n";
 
     std::shared_ptr<AddressBus> addressBus = std::make_shared<AddressBus>();
