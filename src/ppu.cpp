@@ -80,6 +80,12 @@ void PPU::Tick() {
 }
 
 void PPU::MoveToNextLine() {
+    // check if window is in fetching range
+    // note: this must be updated *before* the lyc interrupt fires
+    if (WindowIsVisible() && ly_ >= wy_ && ly_ < (wy_ + kLCDHeight)) {
+        windowY_++;
+    }
+
     ly_++;
     if (ly_ == lyc_) {
         SetLCDStat(kLCDStatLyc);
@@ -89,11 +95,6 @@ void PPU::MoveToNextLine() {
         }
     } else {
         ClearLCDStat(kLCDStatLyc);
-    }
-
-    // check if window is in fetching range
-    if (WindowIsVisible() && ly_ >= wy_ && ly_ < (wy_ + kLCDHeight)) {
-        windowY_++;
     }
 }
 
@@ -386,7 +387,7 @@ void PPU::DMAProcess() {
     dmaByte_++;
 
     if (dmaByte_ >= 0xA0) { // 160 bytes transferred
-        spdlog::info("DMA finished");
+        spdlog::debug("DMA finished");
         dmaActive_ = false;
     }
 }
@@ -469,7 +470,7 @@ void PPU::Write(const uint16_t addr, const uint8_t value) {
             lyc_ = value;
             return;
         case 0xFF46:
-            spdlog::info("DMA init");
+            spdlog::debug("DMA init");
             DMAInit(value);
             return;
         case 0xFF47:
@@ -564,7 +565,6 @@ void PPU::UpdatePaletteSelections(const uint8_t data, uint8_t* palette) {
 
 bool PPU::WindowIsVisible() {
     return GetLCDControl(kLCDControlWindowEnable) && (wx_ - 7) < kLCDWidth && wy_ < kLCDHeight;
-    /* return GetLCDControl(kLCDControlWindowEnable) && wx_ < 166 && wy_ < kLCDHeight; */
 }
 
 uint8_t PPU::GetSpriteHeight() {
