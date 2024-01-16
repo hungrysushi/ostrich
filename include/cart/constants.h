@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-
 const uint16_t kEntryStart = 0x100;
 const uint16_t kEntrySize = 0x04;
 const uint16_t kLogoStart = 0x104;
@@ -49,5 +48,3 @@ const uint8_t kPocketCamera = 0xFC;
 const uint8_t kBandaiTama5 = 0xFD;
 const uint8_t kHuC3 = 0xFE;
 const uint8_t kHuC1RamBattery = 0xFF;
-
-

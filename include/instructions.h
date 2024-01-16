@@ -3,108 +3,103 @@
 #include <cstdint>
 #include <string_view>
 
-
 enum class InstructionType {
-    NONE,
-    NOP,
-    JP,
-    XOR,
-    LD_16,
-    LD,
-    DEC,
-    INC,
-    JR,
-    DI,
-    EI,
-    LDH,
-    HALT,
-    CP,
-    RST,
-    ADD,
-    ADC,
-    POP,
-    SUB,
-    SBC,
-    AND,
-    OR,
-    INC16,
-    DEC16,
-    ADD16,
-    PUSH,
-    RRCA,
-    RLCA,
-    RRA,
-    RLA,
-    DAA,
-    CPL,
-    SCF,
-    CCF,
-    STOP,
-    RET,
-    RETI,
-    CALL,
-    ADD_SP_R8,
-    LD_HL_SP_R8,
-    LD_SP_HL,
-    LD_A16_SP,
-    PREFIX_CB,
+  NONE,
+  NOP,
+  JP,
+  XOR,
+  LD_16,
+  LD,
+  DEC,
+  INC,
+  JR,
+  DI,
+  EI,
+  LDH,
+  HALT,
+  CP,
+  RST,
+  ADD,
+  ADC,
+  POP,
+  SUB,
+  SBC,
+  AND,
+  OR,
+  INC16,
+  DEC16,
+  ADD16,
+  PUSH,
+  RRCA,
+  RLCA,
+  RRA,
+  RLA,
+  DAA,
+  CPL,
+  SCF,
+  CCF,
+  STOP,
+  RET,
+  RETI,
+  CALL,
+  ADD_SP_R8,
+  LD_HL_SP_R8,
+  LD_SP_HL,
+  LD_A16_SP,
+  PREFIX_CB,
 };
-
 
 enum class ArgumentType {
-    NONE,
-    IMM_16,
-    B,
-    C,
-    D,
-    E,
-    H,
-    L,
-    MEM_AT_HL,
-    A,
-    BC,
-    DE,
-    HL,
-    SP,
-    IMM_8,
-    MEM_AT_BC,
-    MEM_AT_DE,
-    MEM_AT_HLD,
-    MEM_AT_HLI,
-    MEM_AT_A8, // E0, F0
-    MEM_AT_C, // E2, F2
-    MEM_AT_A16,
-    AF,
+  NONE,
+  IMM_16,
+  B,
+  C,
+  D,
+  E,
+  H,
+  L,
+  MEM_AT_HL,
+  A,
+  BC,
+  DE,
+  HL,
+  SP,
+  IMM_8,
+  MEM_AT_BC,
+  MEM_AT_DE,
+  MEM_AT_HLD,
+  MEM_AT_HLI,
+  MEM_AT_A8,  // E0, F0
+  MEM_AT_C,   // E2, F2
+  MEM_AT_A16,
+  AF,
 };
-
 
 enum class ConditionType {
-    NONE,
-    NC,
-    NZ,
-    Z,
-    C,
+  NONE,
+  NC,
+  NZ,
+  Z,
+  C,
 };
-
 
 struct Instruction {
-    uint8_t opcode = 0x00;
-    std::string_view mnemonic{"NONE"};
-    InstructionType type = InstructionType::NONE;
-    ArgumentType destination = ArgumentType::NONE;
-    ArgumentType source = ArgumentType::NONE;
-    ConditionType condition = ConditionType::NONE;
+  uint8_t opcode = 0x00;
+  std::string_view mnemonic{"NONE"};
+  InstructionType type = InstructionType::NONE;
+  ArgumentType destination = ArgumentType::NONE;
+  ArgumentType source = ArgumentType::NONE;
+  ConditionType condition = ConditionType::NONE;
 };
-
 
 struct InstructionContext {
-    uint16_t pc;
-    Instruction instruction;
-    bool is16Bit = false;
-    uint16_t source = 0;
+  uint16_t pc;
+  Instruction instruction;
+  bool is16Bit = false;
+  uint16_t source = 0;
 };
 
-
+// clang-format off
 static Instruction kInstructions[] = {
     // 0x
     {    0x00,    "NOP",             InstructionType::NOP, },
@@ -394,14 +389,9 @@ static Instruction kInstructions[] = {
     {    0xFE,    "CP d8",           InstructionType::CP,             ArgumentType::NONE,             ArgumentType::IMM_8,            ConditionType::NONE },
     {    0xFF,    "RST 38h",         InstructionType::RST,            ArgumentType::NONE,             ArgumentType::NONE,             ConditionType::NONE },
 };
+// clang-format on
 
 static constexpr ArgumentType kArgumentTypeFromCBSource[] = {
-    ArgumentType::B,
-    ArgumentType::C,
-    ArgumentType::D,
-    ArgumentType::E,
-    ArgumentType::H,
-    ArgumentType::L,
-    ArgumentType::MEM_AT_HL,
-    ArgumentType::A,
+    ArgumentType::B, ArgumentType::C, ArgumentType::D,         ArgumentType::E,
+    ArgumentType::H, ArgumentType::L, ArgumentType::MEM_AT_HL, ArgumentType::A,
 };
