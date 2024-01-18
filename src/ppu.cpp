@@ -160,7 +160,7 @@ void PPU::FetchTile() {
     uint16_t addr = 0x00;
 
     if (WindowIsVisible() && fetcherX_ + 7 >= wx_ &&
-        fetcherX_ + 7 < wx_ + kLCDHeight + 14 && ly_ >= wy_ &&
+        fetcherX_ < wx_ + 7 + kLCDHeight && ly_ >= wy_ &&
         ly_ < wy_ + kLCDWidth) {
       // render window tile over background
 
@@ -572,8 +572,8 @@ void PPU::UpdatePaletteSelections(const uint8_t data, uint8_t* palette) {
 }
 
 bool PPU::WindowIsVisible() {
-  return GetLCDControl(kLCDControlWindowEnable) && (wx_ - 7) < kLCDWidth &&
-         wy_ < kLCDHeight;
+  return GetLCDControl(kLCDControlWindowEnable) && wx_ >= 0 &&
+         wx_ < (kLCDWidth + 7) && wy_ >= 0 && wy_ < kLCDHeight;
 }
 
 uint8_t PPU::GetSpriteHeight() {
