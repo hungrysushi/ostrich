@@ -111,9 +111,11 @@ void PPU::ScanOAM(const uint8_t index) {
     if (oamEntry.y <= ly_ + 16 && oamEntry.y + spriteHeight > ly_ + 16) {
       spritesInLine_.push_back(oamEntry);
     }
-
-    // sort by x?
   }
+
+  std::stable_sort(
+      spritesInLine_.begin(), spritesInLine_.end(),
+      [](const OAMData& a, const OAMData& b) { return a.x >= b.x; });
 }
 
 void PPU::ResetPixelPipeline() {
