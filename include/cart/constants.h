@@ -48,3 +48,5 @@ const uint8_t kPocketCamera = 0xFC;
 const uint8_t kBandaiTama5 = 0xFD;
 const uint8_t kHuC3 = 0xFE;
 const uint8_t kHuC1RamBattery = 0xFF;
+
+const uint16_t kCartRamSize = 0x1FFF;

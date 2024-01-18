@@ -12,6 +12,9 @@ const uint16_t kRomBankEnd = 0x7FFF;
 const uint16_t kVramStart = 0x8000;
 const uint16_t kVramEnd = 0x9FFF;
 
+const uint16_t kExternalRamStart = 0xA000;
+const uint16_t kExternalRamEnd = 0xBFFF;
+
 const uint16_t kWramStart = 0xC000;
 const uint16_t kWramEnd = 0xDFFF;  // TODO adjust this for CGB switchable bank
 

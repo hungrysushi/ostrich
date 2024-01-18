@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include "cart/constants.h"
+
 Cart::Cart(std::vector<uint8_t>& cartridge)
     : buffer_(std::move(cartridge)),
       size_(buffer_.size()),
@@ -32,6 +34,23 @@ Cart::Cart(std::vector<uint8_t>& cartridge)
   if (sum & 0xFF) {
     checksumPassed_ = true;
   }
+
+  switch (ramSize_) {
+    case 0x02:
+      numberOfBanks_ = 1;
+      break;
+    case 0x03:
+      numberOfBanks_ = 4;
+      break;
+    case 0x04:
+      numberOfBanks_ = 16;
+      break;
+    case 0x05:
+      numberOfBanks_ = 8;
+      break;
+  }
+
+  ram_.reserve(numberOfBanks_ * kCartRamSize);
 }
 
 Cart::~Cart() {}
@@ -44,7 +63,8 @@ const std::string Cart::Describe() {
   ss << "\tTitle: " << title_ << "\n";
   ss << "\tType: " << std::hex << (unsigned)cartType_ << "\n";
   ss << "\tROM Size: " << std::dec << (unsigned)romSize_ << "\n";
-  ss << "\tCart Type: " << std::dec << (unsigned)cartType_ << "\n";
+  ss << "\tFile Size: " << std::dec << (unsigned)size_ << "\n";
+  ss << "\tRAM Size: " << std::dec << (unsigned)ramSize_ << "\n";
 
   return ss.str();
 }

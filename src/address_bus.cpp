@@ -11,6 +11,8 @@ const uint8_t AddressBus::Read(const uint16_t addr) {
     return cart_->Read(addr);
   } else if (addr >= kVramStart && addr <= kVramEnd) {
     return ppu_->Read(addr);
+  } else if (addr >= kExternalRamStart && addr <= kExternalRamEnd) {
+    return cart_->Read(addr);
   } else if (addr >= kWramStart && addr <= kWramEnd) {
     return wram_[addr - kWramStart];
   } else if (addr >= kOamStart && addr <= kOamEnd) {
@@ -34,6 +36,8 @@ void AddressBus::Write(const uint16_t addr, const uint8_t value) {
     cart_->Write(addr, value);
   } else if (addr >= kVramStart && addr <= kVramEnd) {
     ppu_->Write(addr, value);
+  } else if (addr >= kExternalRamStart && addr <= kExternalRamEnd) {
+    cart_->Write(addr, value);
   } else if (addr >= kWramStart && addr <= kWramEnd) {
     wram_[addr - kWramStart] = value;
   } else if (addr >= kOamStart && addr <= kOamEnd) {

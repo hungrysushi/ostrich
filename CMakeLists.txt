@@ -10,6 +10,7 @@ add_executable(gb_ostrich
     main.cpp
     src/address_bus.cpp
     src/cart/cart.cpp
+    src/cart/mbc1.cpp
     src/cpu.cpp
     src/io.cpp
     src/ppu.cpp

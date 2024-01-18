@@ -23,6 +23,9 @@ const uint8_t IO::Read(const uint16_t addr) {
       return timer_->Read(addr);
     case 0xFF0F:
       return cpu_->Read(addr);
+    case 0xFF10 ... 0xFF3F:
+      // audio and wave unimplemented
+      return 0xFF;
     case 0xFF40:
     case 0xFF41:
     case 0xFF42:
@@ -64,6 +67,9 @@ void IO::Write(const uint16_t addr, const uint8_t value) {
       break;
     case 0xFF0F:
       cpu_->Write(addr, value);
+      break;
+    case 0xFF10 ... 0xFF3F:
+      // audio and wave unimplemented
       break;
     case 0xFF40:
     case 0xFF41:

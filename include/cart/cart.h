@@ -19,6 +19,9 @@ class Cart : public Addressable {
   const std::vector<uint8_t> buffer_;
   const uint32_t size_;
 
+  std::vector<uint8_t> ram_;
+  uint8_t numberOfBanks_ = 0;
+
   // header fields
   const std::vector<uint8_t> entry_;
   const std::vector<uint8_t> logo_;
@@ -26,8 +29,8 @@ class Cart : public Addressable {
   const uint16_t newLicenseeCode_;
   const uint8_t sgbFlag_;
   const uint8_t cartType_;
-  const uint8_t romSize_;
-  const uint8_t ramSize_;
+  const uint16_t romSize_;
+  const uint16_t ramSize_;
   const uint8_t destinationCode_;
   const uint8_t oldLicenseeCode_;
   const uint8_t romVersion_;
