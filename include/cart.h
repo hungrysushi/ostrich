@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <istream>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,4 +45,30 @@ static std::shared_ptr<Cart> CreateCartridge(std::string& filename) {
 
   std::vector<uint8_t> romBuffer = LoadRom(filename);
   return CreateCartridge(romBuffer);
+}
+
+static void SaveCartridge(const std::shared_ptr<Cart> cart,
+                          const std::string& filename) {
+  std::vector<uint8_t> saveData = cart->Save();
+  std::ofstream out(filename,
+                    std::ios::out | std::ios::binary | std::ios::trunc);
+  out.write(reinterpret_cast<const char*>(saveData.data()), saveData.size());
+  out.close();
+}
+
+static void LoadCartridge(const std::shared_ptr<Cart> cart,
+                          const std::string& filename) {
+  std::ifstream in(filename, std::ios::in | std::ios::binary);
+  in.unsetf(std::ios::skipws);
+
+  in.seekg(0, std::ios::end);
+  std::streampos length = in.tellg();
+  in.seekg(0, std::ios::beg);
+
+  std::vector<uint8_t> buffer;
+  buffer.reserve(length);
+  buffer.insert(buffer.begin(), std::istream_iterator<uint8_t>(in),
+                std::istream_iterator<uint8_t>());
+
+  cart->Load(buffer);
 }

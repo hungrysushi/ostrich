@@ -16,6 +16,9 @@ class Cart : public Addressable {
   virtual const uint8_t Read(uint16_t addr);
   virtual void Write(uint16_t addr, uint8_t value);
 
+  virtual std::vector<uint8_t> Save();
+  virtual void Load(const std::vector<uint8_t> saveData);
+
   const std::vector<uint8_t> buffer_;
   const uint32_t size_;
 

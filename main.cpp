@@ -1,6 +1,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -16,6 +17,7 @@
 #include "spdlog/spdlog.h"
 #include "timer.h"
 
+const std::string kSaveExtension = ".sav";
 
 std::string message = "";
 
@@ -202,6 +204,11 @@ int main(int argc, char** argv) {
   std::shared_ptr<Cart> cart = CreateCartridge(filename);
   std::cout << cart->Describe() << "\n";
 
+  if (std::filesystem::exists(filename + kSaveExtension)) {
+    std::cout << "Loading save file\n";
+    LoadCartridge(cart, filename + kSaveExtension);
+  }
+
   std::shared_ptr<AddressBus> addressBus = std::make_shared<AddressBus>();
   std::shared_ptr<CPU> cpu = std::make_shared<CPU>();
   std::shared_ptr<Timer> timer = std::make_shared<Timer>();
@@ -231,6 +238,8 @@ int main(int argc, char** argv) {
   }
 
   t1.join();
+
+  SaveCartridge(cart, filename + kSaveExtension);
 
   return 0;
 }

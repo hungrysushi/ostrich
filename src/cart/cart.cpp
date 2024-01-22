@@ -50,7 +50,7 @@ Cart::Cart(std::vector<uint8_t>& cartridge)
       break;
   }
 
-  ram_.reserve(numberOfBanks_ * kCartRamSize);
+  ram_.resize(numberOfBanks_ * kCartRamSize, 0);
 }
 
 Cart::~Cart() {}
@@ -78,4 +78,10 @@ const uint8_t Cart::Read(uint16_t addr) {
 void Cart::Write(uint16_t addr, uint8_t value) {
   // invalid write to ROM
   /* buffer_[i] = byte; */
+}
+
+std::vector<uint8_t> Cart::Save() { return ram_; }
+
+void Cart::Load(const std::vector<uint8_t> saveData) {
+  ram_ = std::vector<uint8_t>(saveData);
 }
