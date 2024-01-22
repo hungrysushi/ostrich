@@ -6,17 +6,39 @@ set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(gb_ostrich
-    main.cpp
-    src/address_bus.cpp
-    src/cart/cart.cpp
-    src/cart/mbc1.cpp
-    src/cart/mbc3.cpp
-    src/cpu.cpp
-    src/io.cpp
-    src/ppu.cpp
-    src/timer.cpp
-    )
+if (DEFINED EMSCRIPTEN)
+    add_executable(gb_ostrich
+        wasm/main.cpp
+        src/address_bus.cpp
+        src/cart/cart.cpp
+        src/cart/mbc1.cpp
+        src/cart/mbc3.cpp
+        src/cpu.cpp
+        src/io.cpp
+        src/ppu.cpp
+        src/timer.cpp
+        )
+    set_target_properties(gb_ostrich PROPERTIES COMPILE_FLAGS "-matomics -O2 -s USE_SDL=2 -s USE_FREETYPE=1 -pthread -s USE_PTHREADS=1")
+    set_target_properties(gb_ostrich PROPERTIES LINK_FLAGS "--bind -s ERROR_ON_UNDEFINED_SYMBOLS=0 -O3 -s USE_SDL=2 -s USE_FREETYPE=1 -pthread -s USE_PTHREADS=1")
+else()
+    add_executable(gb_ostrich
+        main.cpp
+        src/address_bus.cpp
+        src/cart/cart.cpp
+        src/cart/mbc1.cpp
+        src/cart/mbc3.cpp
+        src/cpu.cpp
+        src/io.cpp
+        src/ppu.cpp
+        src/timer.cpp
+        )
+
+    add_subdirectory(external/SDL)
+    if (TARGET SDL2::SDL2main)
+        target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2main)
+    endif()
+    target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2)
+endif()
 
 target_include_directories(gb_ostrich PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -25,8 +47,3 @@ target_include_directories(gb_ostrich PUBLIC
 add_subdirectory(external/spdlog)
 target_link_libraries(gb_ostrich PRIVATE spdlog::spdlog_header_only)
 
-add_subdirectory(external/SDL)
-if (TARGET SDL2::SDL2main)
-    target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2main)
-endif()
-target_link_libraries(gb_ostrich PRIVATE SDL2::SDL2)

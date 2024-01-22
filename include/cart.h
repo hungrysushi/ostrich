@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -11,8 +12,7 @@
 #include "cart/util.h"
 #include "spdlog/spdlog.h"
 
-static std::shared_ptr<Cart> CreateCartridge(std::string& filename) {
-  std::vector<uint8_t> romBuffer = LoadRom(filename);
+static std::shared_ptr<Cart> CreateCartridge(std::vector<uint8_t>& romBuffer) {
   uint8_t romType = romBuffer[kCartType];
 
   switch (romType) {
@@ -33,4 +33,14 @@ static std::shared_ptr<Cart> CreateCartridge(std::string& filename) {
       spdlog::warn("Unsupported ROM type: 0x{:X} {}", romType,
                    RomTypeToString(romType));
   }
+}
+
+static std::shared_ptr<Cart> CreateCartridge(std::string& filename) {
+  if (!std::filesystem::exists(filename)) {
+    spdlog::critical("File {} not found", filename);
+    exit(-1);
+  }
+
+  std::vector<uint8_t> romBuffer = LoadRom(filename);
+  return CreateCartridge(romBuffer);
 }

@@ -68,6 +68,8 @@ void PPU::Tick() {
           SetMode(OAM_SCAN);
           ly_ = 0;
           windowY_ = 0;
+
+          frames_++;
         }
 
         cycles_ = 0;
