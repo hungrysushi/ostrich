@@ -41,6 +41,7 @@ static std::thread* cycleThread = nullptr;
 static std::atomic<bool> threadRunning{false};
 
 static std::vector<uint8_t> romBuffer;
+static std::vector<uint8_t> saveBuffer;
 
 static uint32_t lastCycles = 0;
 static uint32_t lastFrameTime = 0;
@@ -180,6 +181,7 @@ void runGameboy() {
       frames++;
       lastFrameTime = currentMs;
       lastFrameCount = ppu->frames_;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
   std::cout << "Exiting Gameboy thread\n";
@@ -203,6 +205,10 @@ void initGameboy() {
 
   cart = CreateCartridge(romBuffer);
   std::cout << cart->Describe() << "\n";
+
+  if (saveBuffer.size() > 0) {
+    cart->Load(saveBuffer);
+  }
 
   addressBus = std::make_shared<AddressBus>();
   cpu = std::make_shared<CPU>();
@@ -258,10 +264,24 @@ void clearRomBuffer() { romBuffer = {}; }
 
 void pushByteToRomBuffer(uint8_t data) { romBuffer.push_back(data); }
 
+void clearSaveBuffer() { saveBuffer = {}; }
+
+void pushByteToSaveBuffer(uint8_t data) { saveBuffer.push_back(data); }
+
+emscripten::val readSaveData() {
+  std::vector<uint8_t> saveData = cart->Save();
+  return emscripten::val(
+      emscripten::typed_memory_view(saveData.size(), saveData.data()));
+}
+
 EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::register_vector<uint8_t>("ByteVector");
   emscripten::function("initGameboy", &initGameboy);
   emscripten::function("test", &test);
   emscripten::function("pushByteToRomBuffer", &pushByteToRomBuffer);
   emscripten::function("clearRomBuffer", &clearRomBuffer);
+  emscripten::function("pushByteToSaveBuffer", &pushByteToSaveBuffer);
+  emscripten::function("clearSaveBuffer", &clearSaveBuffer);
+  emscripten::function("readSaveData", &readSaveData,
+                       emscripten::allow_raw_pointers());
 }

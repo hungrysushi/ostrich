@@ -12,6 +12,7 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
+            background-color: #A7C7E7;
         }
 
         #gameboy {
@@ -43,7 +44,20 @@
 </head>
 
 <body>
-    <input type="file" id="fileInput" accept=".gb">
+    <div>
+        Select ROM file: <input type="file" id="romFile" accept=".gb"></input><button id="clearRomFile">Clear</button>
+    </div>
+    <div>
+        Select save file (optional): <input type="file" id="saveFile" accept=".gb.sav"></input><button
+            id="clearSaveFile">Clear</button>
+    </div>
+    <div>
+        <br />
+    </div>
+    <div>
+        <button id="runButton">Run</button>
+        <button id="saveButton">Save</button>
+    </div>
 
     <div>
         <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
@@ -51,6 +65,26 @@
 
     <script src="gb_ostrich.js"></script>
     <script>
+        function readFileIntoArray(file, bytePushFn) {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                let uint8Array;
+
+                reader.onload = function (e) {
+                    const arrayBuffer = e.target.result;
+                    uint8Array = new Uint8Array(arrayBuffer);
+
+                    for (let i = 0; i < uint8Array.length; i++) {
+                        bytePushFn(uint8Array[i]);
+                    }
+
+                    resolve();
+                }
+
+                reader.readAsArrayBuffer(file);
+            })
+        }
+
         var Module = {
             canvas: (() => {
                 var canvas = document.getElementById('canvas');
@@ -63,27 +97,57 @@
                 return canvas;
             })(),
             onRuntimeInitialized: function () {
-                const fileInput = document.getElementById('fileInput');
-                fileInput.addEventListener('change', function () {
-                    const file = fileInput.files[0];
+                const romFileInput = document.getElementById('romFile');
+                const saveFileInput = document.getElementById('saveFile');
+                const runButton = document.getElementById('runButton');
+                const saveButton = document.getElementById('saveButton');
+                runButton.addEventListener('click', function () {
+                    const romFile = romFileInput.files[0];
+                    const saveFile = saveFileInput.files[0];
 
-                    if (file) {
-                        const reader = new FileReader();
+                    Module.test();
 
-                        reader.onload = function (e) {
-                            const arrayBuffer = e.target.result;
-                            const uint8Array = new Uint8Array(arrayBuffer);
+                    Module.clearRomBuffer();
+                    Module.clearSaveBuffer();
 
-                            Module.test();
+                    filePromises = []
 
-                            Module.clearRomBuffer();
-                            for (let i = 0; i < uint8Array.length; i++) {
-                                Module.pushByteToRomBuffer(uint8Array[i]);
-                            }
-                            Module.initGameboy();
-                        }
-                        reader.readAsArrayBuffer(file);
+                    if (saveFile) {
+                        filePromises.push(readFileIntoArray(saveFile, Module.pushByteToSaveBuffer));
                     }
+
+                    if (romFile) {
+                        filePromises.push(readFileIntoArray(romFile, Module.pushByteToRomBuffer));
+                    }
+
+                    Promise.all(filePromises).then(() => {
+                        Module.initGameboy();
+                        saveButton.addEventListener('click', function () {
+                            const data = Module.readSaveData();
+                            console.log(data);
+
+                            const uint8Array = new Uint8Array(data);
+                            const blob = new Blob([uint8Array], { type: 'application/octet-stream' });
+                            const blobUrl = URL.createObjectURL(blob);
+
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = blobUrl;
+                            a.download = romFile.name + ".sav";
+
+                            document.body.appendChild(a);
+                            a.click();
+
+                            URL.revokeObjectURL(blobUrl);
+                            document.body.removeChild(a);
+                        });
+                    });
+                });
+                document.getElementById('clearRomFile').addEventListener('click', () => {
+                    romFile.value = '';
+                });
+                document.getElementById('clearSaveFile').addEventListener('click', () => {
+                    saveFile.value = '';
                 });
             }
         };
