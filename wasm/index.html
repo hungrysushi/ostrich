@@ -8,59 +8,95 @@
         body {
             display: flex;
             flex-direction: column;
+            vertical-align: top;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            width: 90vw;
+            height: 90vh;
             margin: 0;
-            background-color: #A7C7E7;
+            background-color: #CCCCCC;
+            padding: 5%;
         }
 
-        #gameboy {
-            background-image: url('gameboy.png');
+        #ostrich {
+            background-image: url('ostrich_border.svg');
             background-size: contain;
             background-repeat: no-repeat;
-            width: 300px;
-            height: 450px;
+            background-position: center;
+            aspect-ratio: 254 / 188;
+            width: 100%;
+            height: auto;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 2%;
         }
 
-        #canvas-container {
+        #buttons {
             display: flex;
-            justify-content: center;
+            flex-direction: row;
             align-items: center;
-            position: absolute;
-            top: 50px;
-            left: 25px;
-            width: 250px;
-            height: 350px;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            width: 100%;
+            border: none;
+        }
+
+        .button-img {
+            width: 25%;
+            aspect-ratio: 254 / 188;
+            object-fit: contain;
         }
 
         #canvas {
-            width: 100%;
-            height: 100%;
-            border: 1px solid black;
+            position: relative;
+            aspect-ratio: 160 / 144;
+            width: 65%;
+            border: 5px solid black;
+        }
+
+        .hidden-file {
+            display: none;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            background-color: black;
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
         }
     </style>
 </head>
 
 <body>
-    <div>
-        Select ROM file: <input type="file" id="romFile" accept=".gb"></input><button id="clearRomFile">Clear</button>
+    <div id="ostrich">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
     </div>
-    <div>
-        Select save file (optional): <input type="file" id="saveFile" accept=".gb.sav"></input><button
-            id="clearSaveFile">Clear</button>
-    </div>
-    <div>
-        <br />
-    </div>
-    <div>
-        <button id="runButton">Run</button>
-        <button id="saveButton">Save</button>
+    <div id="buttons">
+        <img id="buttonSelect" class="button-img" src="SELECT.svg">
+        <img id="buttonStart" class="button-img" src="START.svg">
+        <img id="buttonLoad" class="button-img" src="LOAD.svg">
+        <img id="buttonSave" class="button-img" src="SAVE.svg">
     </div>
 
     <div>
-        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+        <input type="file" id="romFile" class="hidden-file" accept=".gb"></input>
+    </div>
+    <div>
+        <input type="file" id="saveFile" class="hidden-file" accept=".gb.sav"></input>
+    </div>
+    <div>
+        <br />
     </div>
 
     <script src="gb_ostrich.js"></script>
@@ -97,10 +133,27 @@
                 return canvas;
             })(),
             onRuntimeInitialized: function () {
+                // const runButton = document.getElementById('runButton');
+                // const saveButton = document.getElementById('saveButton');
+
                 const romFileInput = document.getElementById('romFile');
                 const saveFileInput = document.getElementById('saveFile');
-                const runButton = document.getElementById('runButton');
-                const saveButton = document.getElementById('saveButton');
+
+                const selectButton = document.getElementById('buttonSelect');
+                selectButton.addEventListener('click', () => {
+                    romFile.value = '';
+                    romFileInput.click();
+                });
+                const loadButton = document.getElementById('buttonLoad');
+                loadButton.addEventListener('click', () => {
+                    saveFile.value = '';
+                    saveFileInput.click();
+                });
+
+                const runButton = document.getElementById('buttonStart');
+                const saveButton = document.getElementById('buttonSave');
+
+
                 runButton.addEventListener('click', function () {
                     const romFile = romFileInput.files[0];
                     const saveFile = saveFileInput.files[0];
@@ -142,12 +195,6 @@
                             document.body.removeChild(a);
                         });
                     });
-                });
-                document.getElementById('clearRomFile').addEventListener('click', () => {
-                    romFile.value = '';
-                });
-                document.getElementById('clearSaveFile').addEventListener('click', () => {
-                    saveFile.value = '';
                 });
             }
         };
