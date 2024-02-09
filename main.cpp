@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "SDL2/SDL.h"
+#include "SDL_timer.h"
 #include "address_bus.h"
 #include "cart.h"
 #include "cpu.h"
@@ -145,10 +147,11 @@ void updateSerialDebugMessage(std::shared_ptr<IO> io) {
 void runGameboy(std::shared_ptr<CPU> cpu, std::shared_ptr<Timer> timer,
                 std::shared_ptr<PPU> ppu) {
   uint32_t lastCycles = 0;
-  uint32_t lastFrameTime = 0;
-  uint32_t lastMeasureTime = 0;
   uint32_t lastFrameCount = 0;
-  uint32_t frames = 0;
+  uint64_t frameStartTime = SDL_GetPerformanceCounter();
+  uint32_t measureFrames = 0;
+  uint64_t measureStart = frameStartTime;
+
   while (!quit) {
     if (cpu->Step() < 0) {
       std::cout << "Error in CPU step\n";
@@ -160,30 +163,35 @@ void runGameboy(std::shared_ptr<CPU> cpu, std::shared_ptr<Timer> timer,
     for (int i = 0; i < 4 * elapsed; i++) {
       timer->Tick();
       ppu->Tick();
+
+      // todo convert to callback in ppu
+      if (ppu->frames_ != lastFrameCount) {
+        uint64_t frameEndTime = SDL_GetPerformanceCounter();
+        float elapsedMs = (frameEndTime - frameStartTime) /
+                          (float)SDL_GetPerformanceFrequency() * 1000.0;
+
+        if (elapsedMs < targetMsPerFrame) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(
+              (int)floor(targetMsPerFrame - elapsed)));
+        }
+
+        if ((frameEndTime - measureStart) /
+                (float)SDL_GetPerformanceFrequency() * 1000.0 >=
+            1000) {
+          spdlog::info("{} frames per second", measureFrames);
+          measureStart = frameEndTime;
+          measureFrames = 0;
+        }
+
+        measureFrames++;
+
+        // reset for next frame
+        frameStartTime = SDL_GetPerformanceCounter();
+        lastFrameCount = ppu->frames_;
+      }
     }
 
     lastCycles = cpu->cycles_;
-
-    if (ppu->frames_ != lastFrameCount) {
-      uint32_t currentMs = SDL_GetTicks();
-      uint32_t frameMs = currentMs - lastFrameTime;
-      if (frameMs < targetMsPerFrame) {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds((int)targetMsPerFrame - frameMs));
-      }
-      if (currentMs - lastMeasureTime >= 1000) {
-        if (currentMs - lastMeasureTime < 1000) {
-          std::this_thread::sleep_for(
-              std::chrono::milliseconds((int)currentMs - lastMeasureTime));
-        }
-        spdlog::info("{} frames per second", frames);
-        lastMeasureTime = currentMs;
-        frames = 0;
-      }
-      frames++;
-      lastFrameTime = currentMs;
-      lastFrameCount = ppu->frames_;
-    }
 
     /* updateSerialDebugMessage(io); */
     /* if (message.length() > 0) { */
